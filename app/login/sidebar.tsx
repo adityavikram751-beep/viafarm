@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button"
 
 const routes = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/products", label: "Products", icon: ShoppingBasket },
   { href: "/vendors", label: "Vendors", icon: Users },
   { href: "/buyers", label: "Buyers", icon: Users },

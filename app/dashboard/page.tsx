@@ -1,8 +1,8 @@
 
-import ManageBanners from "../(dashboard)/BannerManager";
-import RecentActivity from "../(dashboard)/RecentActivity";
-import StatsCards from "../(dashboard)/CardStat";
-import Topbar from "../(dashboard)/Topbar";
+import ManageBanners from "./BannerManager";
+import RecentActivity from "./RecentActivity";
+import StatsCards from "./CardStat";
+import Topbar from "./Topbar";
 // import ActivitySlider from "./components/ActivitySlider";
 
 export default function DashboardPage() {
