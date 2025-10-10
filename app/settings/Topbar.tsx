@@ -11,7 +11,7 @@ const Topbar = () => {
   });
 
   return (
-    <div className="w-full flex justify-between items-center px-6 py-4 bg-gray-100 shadow-sm">
+    <div className="fixed top-0 left-65 w-[82%] flex justify-between items-center px-6 py-4 bg-gray-100 shadow-sm z-50">
       {/* Left: Page Title */}
       <h1 className="text-2xl font-semibold text-gray-800">Settings</h1>
 
@@ -25,10 +25,10 @@ const Topbar = () => {
           <Image src="/icon/icon.png" alt="Notifications" width={36} height={36} />
         </button>
 
-        
+        {/* Avatar */}
         <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-300 shadow-sm">
           <Image
-            src="/about/about.jpg" 
+            src="/about/about.jpg"
             alt="User"
             width={40}
             height={40}

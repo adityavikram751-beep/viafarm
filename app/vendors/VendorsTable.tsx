@@ -1,96 +1,99 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Search,
   Filter,
   List,
   AlertTriangle,
-  MoreVertical,
   ChevronLeft,
   ChevronRight,
   X,
-  ChevronDown,
 } from "lucide-react";
-import Image from "next/image";
-
-interface Vendor {
-  name: string;
-  location: string;
-  contact: string;
-  status: "Active" | "Inactive" | "Blocked" | "Rejected";
-  reason?: string;
-}
+import axios from "axios";
 
 export default function Vendors() {
-  const [mode, setMode] = useState<"list" | "alert">("list");
-  const [openMenu, setOpenMenu] = useState<number | null>(null);
+  const [mode, setMode] = useState("list");
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
-  const [rejectVendorIndex, setRejectVendorIndex] = useState<number | null>(
-    null
-  );
+  const [selectedVendor, setSelectedVendor] = useState(null);
+  const [vendorDetails, setVendorDetails] = useState(null);
+  const [vendors, setVendors] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const rowsPerPage = 6;
 
-  const rowsPerPage = 12;
+  const BASE_URL = "https://393rb0pp-5000.inc1.devtunnels.ms";
 
-  const [vendors, setVendors] = useState<Vendor[]>(
-    Array.from({ length: 36 }, (_, i) => ({
-      name: "Ashok Sharma",
-      location: "480/2, Vinod Nagar, Delhi",
-      contact: "9999999999",
-      status:
-        i === 2
-          ? "Blocked"
-          : i === 4
-          ? "Inactive"
-          : "Active",
-    }))
-  );
+  // ✅ Fetch all vendors
+  const fetchVendors = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${BASE_URL}/api/admin/vendors`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.data?.success) setVendors(res.data.data);
+    } catch (err) {
+      console.error("Error fetching vendors:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchVendors();
+  }, []);
+
+  // ✅ Fetch vendor details
+  const handleViewVendor = async (vendorId) => {
+    setLoading(true);
+    setSelectedVendor(vendorId);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${BASE_URL}/api/admin/vendor/${vendorId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.data?.success) setVendorDetails(res.data.data);
+    } catch (err) {
+      console.error("Error fetching vendor details:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Block / Unblock Vendor
+  const handleToggleStatus = async (vendorId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.patch(
+        `${BASE_URL}/api/admin/vendors/${vendorId}/status`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (res.data?.success) {
+        alert(res.data.message);
+        // Update UI instantly
+        setVendors((prev) =>
+          prev.map((v) =>
+            v._id === vendorId
+              ? { ...v, status: res.data.data.status }
+              : v
+          )
+        );
+      }
+    } catch (err) {
+      console.error("Error updating vendor status:", err);
+      alert("Failed to update vendor status.");
+    }
+  };
+
+  const closeModal = () => {
+    setSelectedVendor(null);
+    setVendorDetails(null);
+  };
 
   const totalPages = Math.ceil(vendors.length / rowsPerPage);
   const paginatedVendors = vendors.slice(
     (currentPage - 1) * rowsPerPage,
     currentPage * rowsPerPage
   );
-
-  const handleToggleBlock = (index: number) => {
-    const globalIndex = (currentPage - 1) * rowsPerPage + index;
-    setVendors((prev) =>
-      prev.map((v, i) =>
-        i === globalIndex
-          ? {
-              ...v,
-              status: v.status === "Blocked" ? "Active" : "Blocked",
-            }
-          : v
-      )
-    );
-    setOpenMenu(null);
-  };
-
-  const handleDelete = (index: number) => {
-    const globalIndex = (currentPage - 1) * rowsPerPage + index;
-    setVendors((prev) => prev.filter((_, i) => i !== globalIndex));
-  };
-
-  const handleRejectVendor = () => {
-    if (rejectVendorIndex !== null) {
-      const globalIndex =
-        (currentPage - 1) * rowsPerPage + rejectVendorIndex;
-      setVendors((prev) =>
-        prev.map((v, i) =>
-          i === globalIndex
-            ? { ...v, status: "Rejected", reason: rejectReason }
-            : v
-        )
-      );
-      setShowRejectModal(false);
-      setRejectReason("");
-      setRejectVendorIndex(null);
-    }
-  };
 
   return (
     <div className="bg-white p-4 rounded-xl shadow-md relative">
@@ -108,11 +111,8 @@ export default function Vendors() {
         <div className="flex items-center gap-3">
           <div className="flex items-center border border-gray-200 rounded-md overflow-hidden">
             <button
-              onClick={() => {
-                setMode("list");
-                setCurrentPage(1);
-              }}
-              className={`flex items-center justify-center w-9 h-9 transition-colors ${
+              onClick={() => setMode("list")}
+              className={`flex items-center justify-center w-9 h-9 ${
                 mode === "list"
                   ? "bg-[#6B3D1C] text-white"
                   : "bg-white text-gray-600 hover:bg-gray-100"
@@ -122,11 +122,8 @@ export default function Vendors() {
             </button>
 
             <button
-              onClick={() => {
-                setMode("alert");
-                setCurrentPage(1);
-              }}
-              className={`flex items-center justify-center w-9 h-9 transition-colors ${
+              onClick={() => setMode("alert")}
+              className={`flex items-center justify-center w-9 h-9 ${
                 mode === "alert"
                   ? "bg-[#6B3D1C] text-white"
                   : "bg-white text-gray-600 hover:bg-gray-100"
@@ -147,103 +144,59 @@ export default function Vendors() {
         <table className="w-full text-sm">
           <thead className="bg-gray-100 text-gray-700">
             <tr>
+              <th className="text-left p-3">Profile</th>
               <th className="text-left p-3">Vendor’s Name</th>
-              <th className="text-left p-3">Location</th>
               <th className="text-left p-3">Contact No.</th>
-              {mode === "list" && <th className="text-left p-3">Status</th>}
+              <th className="text-left p-3">Status</th>
               <th className="text-center p-3">Action</th>
             </tr>
           </thead>
           <tbody>
-            {paginatedVendors.map((vendor, i) => (
+            {paginatedVendors.map((vendor) => (
               <tr
-                key={i}
-                className="border-b hover:bg-gray-50 transition-colors relative"
+                key={vendor._id}
+                className="border-b hover:bg-gray-50 transition-colors"
               >
+                <td className="p-3">
+                  <img
+                    src={
+                      vendor.profilePicture ||
+                      "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+                    }
+                    alt={vendor.name}
+                    className="w-12 h-12 rounded-full object-cover"
+                  />
+                </td>
                 <td className="p-3">{vendor.name}</td>
-                <td className="p-3">{vendor.location}</td>
-                <td className="p-3">{vendor.contact}</td>
-
-                {mode === "list" && (
-                  <td className="p-3">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        vendor.status === "Active"
-                          ? "bg-green-100 text-green-700"
-                          : vendor.status === "Inactive"
-                          ? "bg-yellow-100 text-yellow-700"
-                          : vendor.status === "Rejected"
-                          ? "bg-red-200 text-red-700"
-                          : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {vendor.status}
-                    </span>
-
-                    {vendor.status === "Rejected" && vendor.reason && (
-                      <p className="text-[11px] text-gray-500 mt-1">
-                        Reason: {vendor.reason}
-                      </p>
-                    )}
-                  </td>
-                )}
-
-                <td className="text-center relative">
-                  <button
-                    onClick={() => setOpenMenu(openMenu === i ? null : i)}
-                    className="p-2 hover:bg-gray-200 rounded-full"
+                <td className="p-3">{vendor.mobileNumber}</td>
+                <td className="p-3">
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      vendor.status === "Active"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-700"
+                    }`}
                   >
-                    <MoreVertical className="w-4 h-4 text-gray-600" />
+                    {vendor.status}
+                  </span>
+                </td>
+                <td className="flex justify-center gap-2 p-3">
+                  <button
+                    onClick={() => handleViewVendor(vendor._id)}
+                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    View
                   </button>
-
-                  {openMenu === i && (
-                    <div className="absolute right-8 top-8 bg-white shadow-lg rounded-lg text-sm w-40 py-2 z-50 border">
-                      <button
-                        onClick={() => {
-                          setSelectedVendor(vendor);
-                          setOpenMenu(null);
-                        }}
-                        className="block w-full text-left px-4 py-2 hover:bg-gray-100"
-                      >
-                        View
-                      </button>
-
-                      {mode === "list" ? (
-                        <>
-                          <button
-                            onClick={() => handleToggleBlock(i)}
-                            className="block w-full text-left px-4 py-2 hover:bg-gray-100"
-                          >
-                            {vendor.status === "Blocked"
-                              ? "Unblock User"
-                              : "Block User"}
-                          </button>
-                          <button
-                            onClick={() => handleDelete(i)}
-                            className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100"
-                          >
-                            Delete User
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button className="block w-full text-left px-4 py-2 hover:bg-gray-100">
-                            Approve Vendor
-                          </button>
-                          <button
-                            onClick={() => {
-                              setRejectVendorIndex(i);
-                              setShowRejectModal(true);
-                              setOpenMenu(null);
-                            }}
-                            className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100"
-                          >
-                            Reject Vendor
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  )}
+                  <button
+                    onClick={() => handleToggleStatus(vendor._id)}
+                    className={`px-3 py-1 text-sm rounded-md ${
+                      vendor.status === "Blocked"
+                        ? "bg-green-600 hover:bg-green-700"
+                        : "bg-red-600 hover:bg-red-700"
+                    } text-white`}
+                  >
+                    {vendor.status === "Blocked" ? "Unblock" : "Block"}
+                  </button>
                 </td>
               </tr>
             ))}
@@ -266,9 +219,7 @@ export default function Vendors() {
             <ChevronLeft className="w-4 h-4" />
           </button>
           <button
-            onClick={() =>
-              setCurrentPage((p) => Math.min(totalPages, p + 1))
-            }
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
             className="w-8 h-8 flex items-center justify-center rounded-full border hover:bg-gray-200 disabled:opacity-50"
           >
@@ -277,152 +228,84 @@ export default function Vendors() {
         </div>
       </div>
 
-      {/* ---------- Reject Vendor Modal ---------- */}
-      {showRejectModal && (
+      {/* ---------- Vendor Details Modal ---------- */}
+      {vendorDetails && (
         <>
-          <div
-            className="fixed inset-0 bg-black/40 z-40"
-            onClick={() => setShowRejectModal(false)}
-          />
-          <div className="fixed top-1/2 left-1/2 bg-white rounded-xl shadow-xl w-[330px] p-5 transform -translate-x-1/2 -translate-y-1/2 z-50">
-            <div className="flex justify-between items-center border-b pb-2 mb-3">
-              <h2 className="text-gray-800 font-semibold text-sm">
-                Reason for rejection
-              </h2>
-              <button
-                onClick={() => setShowRejectModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-gray-600 mb-2">
-              Write your reason to reject the vendor
-            </p>
-            <textarea
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              rows={3}
-              className="w-full border rounded-md p-2 text-sm outline-none focus:ring-1 focus:ring-green-500 resize-none"
-            />
-            <button
-              onClick={handleRejectVendor}
-              className="mt-4 w-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-md"
-            >
-              Send
-            </button>
-          </div>
-        </>
-      )}
-
-      {/* ---------- Full Vendor Detail Modal ---------- */}
-      {selectedVendor && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/50 z-40"
-            onClick={() => setSelectedVendor(null)}
-          />
-          <div className="fixed top-1/2 left-1/2 bg-white rounded-xl shadow-2xl w-[650px] p-6 transform -translate-x-1/2 -translate-y-1/2 z-50">
+          <div className="fixed inset-0 bg-black/50 z-40" onClick={closeModal} />
+          <div className="fixed top-1/2 left-1/2 bg-white rounded-xl shadow-2xl w-[700px] max-h-[90vh] overflow-y-auto p-6 transform -translate-x-1/2 -translate-y-1/2 z-50">
             <div className="flex justify-between items-center border-b pb-3 mb-4">
               <h2 className="text-gray-800 font-semibold text-lg">
-                {selectedVendor.name}
+                {vendorDetails.vendor.name}
               </h2>
               <button
-                onClick={() => setSelectedVendor(null)}
+                onClick={closeModal}
                 className="text-gray-500 hover:text-gray-700"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex gap-4">
-              <Image
-                src="/castomer/castomer.png"
-                alt="castomer"
-                width={120}
-                height={120}
-                className="rounded-xl object-cover"
+            <div className="flex gap-4 mb-6">
+              <img
+                src={
+                  vendorDetails.vendor.profilePicture ||
+                  "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+                }
+                alt="Vendor"
+                className="w-32 h-32 rounded-lg object-cover"
               />
-              <div>
-                <h3 className="text-gray-800 font-semibold text-md">
-                  {selectedVendor.name}
-                </h3>
-                <p className="text-gray-600 text-sm mt-1">
-                  <span className="font-semibold">Location -</span>{" "}
-                  {selectedVendor.location}
+              <div className="flex flex-col gap-1 text-sm text-gray-700">
+                <p>
+                  <strong>Mobile:</strong> {vendorDetails.vendor.mobileNumber}
                 </p>
-                <p className="text-gray-600 text-sm mt-1">
-                  <span className="font-semibold">Contact No. -</span>{" "}
-                  {selectedVendor.contact}
+                <p>
+                  <strong>Status:</strong> {vendorDetails.vendor.status}
                 </p>
-
-                <span
-                  className={`inline-block text-xs font-medium px-3 py-1 rounded-full mt-2 ${
-                    selectedVendor.status === "Blocked"
-                      ? "bg-red-100 text-red-700"
-                      : selectedVendor.status === "Inactive"
-                      ? "bg-yellow-100 text-yellow-700"
-                      : selectedVendor.status === "Rejected"
-                      ? "bg-red-200 text-red-700"
-                      : "bg-green-100 text-green-700"
-                  }`}
-                >
-                  {selectedVendor.status}
-                </span>
+                <p>
+                  <strong>City:</strong> {vendorDetails.vendor.address?.city}
+                </p>
+                <p>
+                  <strong>District:</strong>{" "}
+                  {vendorDetails.vendor.address?.district}
+                </p>
+                <p>
+                  <strong>Pin Code:</strong>{" "}
+                  {vendorDetails.vendor.address?.pinCode}
+                </p>
+                <p>
+                  <strong>About:</strong>{" "}
+                  {vendorDetails.vendor.vendorDetails?.about}
+                </p>
               </div>
             </div>
 
-            <div className="mt-6">
-              <h4 className="font-semibold text-gray-800 mb-1">
-                About the Vendor
-              </h4>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
-                eiusmod tempor incididunt ut labore et dolore magna aliqua.
-              </p>
-            </div>
-
-            <div className="mt-6">
-              <div className="flex justify-between items-center mb-2">
-                <h4 className="font-semibold text-gray-800">
-                  Listed Products
-                </h4>
-                <div className="flex items-center gap-1 border rounded-md px-2 py-1 text-sm text-gray-600">
-                  Fruits
-                  <ChevronDown className="w-4 h-4" />
-                </div>
-              </div>
-
-              <div className="flex gap-3 items-start border rounded-xl p-3 bg-white shadow-sm hover:shadow-md transition">
-                <Image
-                  src="/mango/mango.png"
-                  alt="Mango"
-                  width={200}
-                  height={200}
-                  className="rounded-lg object-full"
-                />
-                <div className="flex-1">
-                  <div className="flex justify-between items-center">
-                    <h5 className="font-semibold text-gray-800">Mango</h5>
-                    <span className="text-green-700 bg-green-100 text-xs px-3 py-1 rounded-full">
-                      In Stock
-                    </span>
+            <div>
+              <h3 className="font-semibold text-gray-800 mb-2">
+                Listed Products
+              </h3>
+              {vendorDetails.listedProducts.length > 0 ? (
+                vendorDetails.listedProducts.map((p) => (
+                  <div
+                    key={p._id}
+                    className="flex items-start gap-3 border border-yellow-300 rounded-lg p-3 mb-3 bg-gray-50"
+                  >
+                    <img
+                      src={p.images?.[0]}
+                      alt={p.name}
+                      className="w-20 h-20 rounded-lg object-cover"
+                    />
+                    <div className="flex-1 text-sm text-gray-700">
+                      <p className="font-semibold">{p.name}</p>
+                      <p>Category: {p.category}</p>
+                      <p>Variety: {p.variety}</p>
+                      <p>Price: ₹ {p.price}</p>
+                      <p>Status: {p.status}</p>
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">
-                    <strong>Category:</strong> Fruit
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    <strong>Variety:</strong> Chausa
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    <strong>Price:</strong> ₹ 1200/10kg
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Uploaded on 30/09/2025
-                  </p>
-                </div>
-              </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-sm">No products listed yet.</p>
+              )}
             </div>
           </div>
         </>
