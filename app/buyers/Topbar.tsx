@@ -11,7 +11,7 @@ const Topbar = () => {
   });
 
   return (
-    <div className="fixed top-0 left-65 w-[82%] flex justify-between items-center px-6 py-4 bg-gray-100 shadow-sm z-50">
+    <div className="fixed top-0 left-65 w-[81.4%] flex justify-between items-center px-4 py-4 bg-gray-100  z-50">
       {/* Left: Page Title */}
       <h1 className="text-2xl font-semibold text-gray-800">Buyers</h1>
 

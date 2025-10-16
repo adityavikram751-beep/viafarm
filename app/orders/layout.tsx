@@ -24,7 +24,7 @@ export default function RootLayout({
           </aside>
 
           {/* Main Content with left margin to account for fixed sidebar */}
-          <main className="flex-1 ml-48 p-4">
+          <main className="flex-1 ml-60 p-12">
             {children}
           </main>
         </div>
