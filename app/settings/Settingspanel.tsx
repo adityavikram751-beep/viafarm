@@ -1,89 +1,269 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Upload, Trash2 } from "lucide-react";
 
 export default function SettingsPage() {
+  const BASE_URL = "https://393rb0pp-5000.inc1.devtunnels.ms";
+
   const [activeTab, setActiveTab] = useState("general");
+  const [loading, setLoading] = useState(false);
   const [profilePic, setProfilePic] = useState("/profile.jpg");
 
   const [formData, setFormData] = useState({
-    name: "Risha Sharma",
-    phone: "9999999999",
+    name: "",
+    email: "",
+    upiId: "",
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
 
   const [notifications, setNotifications] = useState({
-    vendor: true,
-    buyer: true,
-    product: true,
-    order: true,
+    newVendorRegistration: false,
+    newBuyerRegistration: false,
+    newProductRegistration: false,
+    newOrderPlaced: false,
   });
 
-  // Input change handler
-  const handleChange = (e: any) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
+  // ✅ Get Token
+  const getToken = () => localStorage.getItem("token");
 
-  // Image upload
-  const handleUpload = (e: any) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event: any) => {
-        setProfilePic(event.target.result);
-      };
-      reader.readAsDataURL(file);
+  // ✅ Safe JSON parser
+  const safeJson = async (res: Response) => {
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      console.error("❌ Non-JSON response:", text);
+      return { success: false, message: "Server returned non-JSON response" };
     }
   };
 
-  // Delete profile image
-  const handleDelete = () => {
-    setProfilePic("/profile.jpg");
+  // ✅ Fetch Profile
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        const token = getToken();
+        if (!token) return alert("⚠️ Token missing!");
+
+        const res = await fetch(`${BASE_URL}/api/admin/settings/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const data = await safeJson(res);
+        if (res.ok && data.success && data.data) {
+          setFormData((prev) => ({
+            ...prev,
+            name: data.data.name || "",
+            email: data.data.email || "",
+            upiId: data.data.upiId || "",
+          }));
+          if (data.data.profilePicture) setProfilePic(data.data.profilePicture);
+        } else {
+          alert(`⚠️ Failed to fetch profile: ${data.message || "Error"}`);
+        }
+      } catch (error) {
+        console.error("❌ Fetch profile failed:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  // ✅ Fetch Notifications
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const token = getToken();
+        const res = await fetch(`${BASE_URL}/api/admin/settings/notifications`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await safeJson(res);
+        if (res.ok && data) setNotifications(data);
+      } catch (error) {
+        console.error("❌ Failed to fetch notifications:", error);
+      }
+    };
+    fetchNotifications();
+  }, []);
+
+  // ✅ Input Change
+  const handleChange = (e: any) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Save profile info
-  const handleSave = () => {
-    alert(`✅ Profile Updated!\nName: ${formData.name}\nPhone: ${formData.phone}`);
+  // ✅ Upload Image
+  const handleUpload = (e: any) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event: any) => setProfilePic(event.target.result);
+    reader.readAsDataURL(file);
   };
 
-  // Update password
-  const handlePasswordUpdate = () => {
-    if (!formData.currentPassword || !formData.newPassword || !formData.confirmPassword) {
-      alert("⚠️ Please fill all password fields!");
+  // ✅ Delete Profile Picture
+  const handleDelete = async () => {
+    if (!confirm("🗑️ Are you sure you want to delete your profile picture?"))
       return;
+
+    try {
+      setLoading(true);
+      const token = getToken();
+      const res = await fetch(`${BASE_URL}/api/admin/settings/profile-picture`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await safeJson(res);
+      if (res.ok && data.success) {
+        setProfilePic("/profile.jpg");
+        alert("✅ Profile picture deleted successfully!");
+      } else {
+        alert(`⚠️ Delete failed: ${data.message || "Error"}`);
+      }
+    } catch (error) {
+      console.error("❌ Delete failed:", error);
+      alert("❌ Failed to delete profile picture.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Save Profile Info
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+      const token = getToken();
+      if (!token) return alert("⚠️ No token found!");
+
+      const res = await fetch(`${BASE_URL}/api/admin/settings/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          upiId: formData.upiId,
+          profilePicture: profilePic,
+        }),
+      });
+
+      const data = await safeJson(res);
+      if (res.ok && data.success) {
+        alert("✅ Profile updated successfully!");
+      } else {
+        alert(`❌ Update failed: ${data.message || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("❌ Update failed:", error);
+      alert("❌ Update failed due to network or server error.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Change Password
+  const handlePasswordUpdate = async () => {
+    if (
+      !formData.currentPassword ||
+      !formData.newPassword ||
+      !formData.confirmPassword
+    ) {
+      return alert("⚠️ Please fill all password fields!");
     }
 
     if (formData.newPassword !== formData.confirmPassword) {
-      alert("❌ New passwords do not match!");
-      return;
+      return alert("❌ Passwords do not match!");
     }
 
-    alert("✅ Password updated successfully!");
-    setFormData({
-      ...formData,
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    });
+    try {
+      setLoading(true);
+      const token = getToken();
+      if (!token) return alert("⚠️ No token found!");
+
+      const res = await fetch(
+        `${BASE_URL}/api/admin/settings/change-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            currentPassword: formData.currentPassword,
+            newPassword: formData.newPassword,
+            confirmPassword: formData.confirmPassword,
+          }),
+        }
+      );
+
+      const data = await safeJson(res);
+      if (res.ok && data.success) {
+        alert("✅ Password updated successfully!");
+        setFormData((prev) => ({
+          ...prev,
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        }));
+      } else {
+        alert(`⚠️ Failed to change password: ${data.message || "Error"}`);
+      }
+    } catch (error) {
+      console.error("❌ Password update failed:", error);
+      alert("❌ Password update failed.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const toggleNotification = (key: string) => {
-    setNotifications((prev) => ({
-      ...prev,
-      [key]: !prev[key as keyof typeof prev],
-    }));
+  // ✅ Toggle Notification
+  const toggleNotification = async (key: string) => {
+    const updated = {
+      ...notifications,
+      [key]: !notifications[key as keyof typeof notifications],
+    };
+    setNotifications(updated);
+
+    try {
+      const token = getToken();
+      const res = await fetch(`${BASE_URL}/api/admin/settings/notifications`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updated),
+      });
+      const data = await safeJson(res);
+      if (!res.ok || !data.success) {
+        alert("⚠️ Failed to update notification settings!");
+      }
+    } catch (error) {
+      console.error("❌ Notification update failed:", error);
+    }
   };
 
+  // ✅ Loader
+  if (loading)
+    return (
+      <div className="flex justify-center items-center h-screen text-lg font-medium">
+        Loading...
+      </div>
+    );
+
+  // ✅ Layout
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
-      {/* Sidebar (Fixed) */}
+      {/* Sidebar */}
       <div className="w-64 bg-gray-200 p-6 flex-shrink-0">
-        <h2 className="text-lg font-semibold mb-6"></h2>
         <div className="flex flex-col gap-3">
           <button
             onClick={() => setActiveTab("general")}
@@ -108,16 +288,14 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Main Content (Scrollable) */}
+      {/* Main Content */}
       <div className="flex-1 overflow-y-auto bg-white p-10 rounded-l-2xl shadow-md">
-        {/* GENERAL TAB */}
         {activeTab === "general" && (
-          <div className="space-y-8 pb-16">
-            {/* Profile Info */}
+          <div className="space-y-10 pb-16">
+            {/* Profile Info Box */}
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 shadow-sm">
               <h3 className="font-semibold text-gray-800 mb-5">Profile Info</h3>
-
-              <div className="flex items-center gap-120 mb-6">
+              <div className="flex items-center gap-10 mb-6">
                 <Image
                   src={profilePic}
                   alt="Profile"
@@ -132,7 +310,6 @@ export default function SettingsPage() {
                   >
                     <Trash2 size={16} />
                   </button>
-
                   <label className="border border-green-500 text-green-500 px-4 py-2 rounded-md flex items-center gap-2 hover:bg-green-50 cursor-pointer">
                     <Upload size={16} /> Upload
                     <input
@@ -145,37 +322,41 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Input Fields */}
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Name *
-                  </label>
+                  <label>Email Id *</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  />
+                </div>
+                <div>
+                  <label>Name *</label>
                   <input
                     type="text"
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Mobile Number *
-                  </label>
+                  <label>UPI Id *</label>
                   <input
                     type="text"
-                    name="phone"
-                    value={formData.phone}
+                    name="upiId"
+                    value={formData.upiId}
                     onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
                   />
                 </div>
-
                 <div className="flex justify-center mt-6">
                   <button
                     onClick={handleSave}
-                    className="bg-green-500 text-white rounded-lg px-10 py-2 text-base font-medium hover:bg-green-600 transition"
+                    className="bg-green-500 text-white rounded-lg px-10 py-2 hover:bg-green-600"
                   >
                     Save
                   </button>
@@ -183,51 +364,46 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Change Password */}
+            {/* Change Password Box */}
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 shadow-sm">
-              <h3 className="font-semibold text-gray-800 mb-5">Change Password</h3>
+              <h3 className="font-semibold text-gray-800 mb-5">
+                Change Password
+              </h3>
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Current Password *
-                  </label>
+                  <label>Current Password *</label>
                   <input
                     type="password"
                     name="currentPassword"
                     value={formData.currentPassword}
                     onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    New Password *
-                  </label>
+                  <label>New Password *</label>
                   <input
                     type="password"
                     name="newPassword"
                     value={formData.newPassword}
                     onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Confirm Password *
-                  </label>
+                  <label>Confirm Password *</label>
                   <input
                     type="password"
                     name="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
                   />
                 </div>
-
                 <div className="flex justify-center mt-6">
                   <button
                     onClick={handlePasswordUpdate}
-                    className="bg-green-500 text-white rounded-lg px-10 py-2 text-base font-medium hover:bg-green-600 transition"
+                    className="bg-blue-600 text-white rounded-lg px-10 py-2 hover:bg-blue-700"
                   >
                     Update Password
                   </button>
@@ -237,25 +413,21 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* NOTIFICATIONS TAB */}
         {activeTab === "notifications" && (
           <div className="border rounded-xl p-8 bg-gray-50 shadow-sm space-y-6 pb-16">
-            <h3 className="font-semibold mb-6 text-gray-800">Manage Your Notifications</h3>
-            {[
-              { label: "New Vendor Registration", key: "vendor" },
-              { label: "New Buyer Registration", key: "buyer" },
-              { label: "New Product Registration", key: "product" },
-              { label: "New Order Placed", key: "order" },
-            ].map(({ label, key }) => (
+            <h3 className="font-semibold mb-6 text-gray-800">
+              Manage Your Notifications
+            </h3>
+            {Object.entries(notifications).map(([key, value]) => (
               <div
                 key={key}
                 className="flex items-center justify-between w-full max-w-xl"
               >
-                <span className="text-gray-700 text-base">{label}</span>
+                <span>{key.replace(/([A-Z])/g, " $1")}</span>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={notifications[key as keyof typeof notifications]}
+                    checked={value}
                     onChange={() => toggleNotification(key)}
                     className="sr-only peer"
                   />

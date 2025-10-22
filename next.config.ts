@@ -1,20 +1,5 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  reactStrictMode: true,
-
+module.exports = {
   images: {
-    // ✅ Allow Cloudinary images
-    domains: ['res.cloudinary.com'],
-
-    // ✅ Allow remote patterns (optional safety)
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'res.cloudinary.com',
-        pathname: '**',
-      },
-    ],
+    domains: ['res.cloudinary.com', 'cdn-icons-png.flaticon.com'],
   },
 };
-
-module.exports = nextConfig;
