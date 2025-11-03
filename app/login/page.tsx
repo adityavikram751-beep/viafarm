@@ -3,57 +3,52 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import { Eye, EyeOff } from "lucide-react";
+
+const BASE_URL = "https://393rb0pp-5000.inc1.devtunnels.ms";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("aditya123@gmail.com");
-  const [password, setPassword] = useState("12345678");
-  const [showForgot, setShowForgot] = useState(false);
-  const [resetEmail, setResetEmail] = useState("aditya123@gmail.com");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resetMessage, setResetMessage] = useState("");
 
-  // ✅ Handle Login
+  /* ---------------- LOGIN ---------------- */
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await axios.post("https://393rb0pp-5000.inc1.devtunnels.ms/api/auth/admin-login", {
+      const res = await axios.post(`${BASE_URL}/api/auth/admin-login`, {
         email,
         password,
       });
-      console.log("hhhhhhhhhhhhhhhh", res)
 
       if (res.data.success) {
         localStorage.setItem("token", res.data.token);
         localStorage.setItem("isLoggedIn", "true");
         router.push("/dashboard");
+      } else {
+        alert(res.data.message || "Invalid login credentials!");
       }
     } catch (err: any) {
       alert(err.response?.data?.message || "Invalid email or password!");
     }
   };
 
-  // ✅ Handle Forgot Password (request reset link)
+  /* ---------------- FORGOT PASSWORD ---------------- */
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setResetMessage("");
 
     try {
-      const res = await axios.post("https://393rb0pp-5000.inc1.devtunnels.ms/api/auth/request-password-reset", {
-        email: resetEmail,
-      });
-
-      // Show message from API
-      setResetMessage(res.data.message);
-
-      // For testing, you can log the reset URL
-      console.log("Reset URL:", res.data.resetUrl);
-
-      // Optionally show alert for user
+      const res = await axios.post(
+        `${BASE_URL}/api/auth/request-password-reset`,
+        { email: resetEmail }
+      );
       alert(res.data.message);
-      setResetEmail("");
-      setShowForgot(false);
+      setForgotMode(false);
     } catch (err: any) {
       alert(err.response?.data?.message || "Error sending reset link!");
     } finally {
@@ -62,84 +57,97 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex flex-col justify-center items-center min-h-screen bg-gray-100">
-      {/* === LOGIN BOX === */}
-      <div className="bg-white p-8 rounded-2xl shadow-md w-96">
-        <h1 className="text-2xl font-semibold text-center mb-6 text-gray-800">
-          Admin Login
-        </h1>
+    <div className="flex flex-col justify-center items-center min-h-screen bg-white">
+      {!forgotMode ? (
+        /* ================= LOGIN FORM ================= */
+        <div className="bg-white p-10 rounded-2xl shadow-lg w-[400px] text-center">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+            Welcome Back !
+          </h2>
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <input
-            type="email"
-            placeholder="Enter Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-            required
-          />
-
-          <input
-            type="password"
-            placeholder="Enter Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-            required
-          />
-
-          <button
-            type="submit"
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition"
-          >
-            Log In
-          </button>
-        </form>
-
-        <div className="mt-4 text-center">
-          <button
-            onClick={() => setShowForgot(true)}
-            className="text-sm text-blue-600 hover:underline"
-          >
-            Forgot Password?
-          </button>
-        </div>
-      </div>
-
-      {/* === FORGOT PASSWORD MODAL === */}
-      {showForgot && (
-        <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl p-6 w-[380px] shadow-lg relative">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              Reset Your Password
-            </h3>
-
-            <form onSubmit={handleForgot} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div>
               <input
                 type="email"
-                placeholder="Enter your registered email"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="Enter Email Id"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
+                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:outline-none"
               />
+            </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition disabled:opacity-50"
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:outline-none"
+              />
+              <span
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-3 text-gray-500 cursor-pointer"
               >
-                {loading ? "Sending..." : "Send Reset Link"}
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </span>
+            </div>
+
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={() => setForgotMode(true)}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                Forgot password ?
               </button>
-            </form>
+            </div>
 
             <button
-              onClick={() => setShowForgot(false)}
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+              type="submit"
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition"
             >
-              ✕
+              Log In
             </button>
-          </div>
+          </form>
+        </div>
+      ) : (
+        /* ================= FORGOT PASSWORD FORM ================= */
+        <div className="bg-white p-10 rounded-2xl shadow-lg w-[400px] text-center">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+            Forgot Password
+          </h2>
+          <p className="text-sm text-gray-500 mb-6">
+            Please enter the Email address you’d like your password reset
+            information sent to
+          </p>
+
+          <form onSubmit={handleForgot} className="space-y-5">
+            <input
+              type="email"
+              placeholder="Enter Email Id"
+              value={resetEmail}
+              onChange={(e) => setResetEmail(e.target.value)}
+              required
+              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:outline-none"
+            />
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition disabled:opacity-50"
+            >
+              {loading ? "Sending..." : "Request reset link"}
+            </button>
+          </form>
+
+          <button
+            onClick={() => setForgotMode(false)}
+            className="mt-5 text-sm text-blue-600 hover:underline"
+          >
+            Back To Login
+          </button>
         </div>
       )}
     </div>

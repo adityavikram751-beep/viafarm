@@ -1,37 +1,34 @@
-"use client";
-
-import React, { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import {Sidebar} from "../login/sidebar"; // adjust path if needed
+import "../globals.css"
+import type { Metadata } from "next"
+import { Sidebar } from "../login/sidebar"
 
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
+export const metadata: Metadata = {
+  title: "Via-Farm Admin Dashboard",
+  description: "Admin panel for managing vendors, buyers, products, and orders",
+}
 
-   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.replace("/login"); 
-    }
-  }, [router]);
-
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
-      
-    <div className="flex bg-gray-100 min-h-screen">
-      {/* Fixed Sidebar */}
-      <aside className="fixed left-0 top-0 h-screen w-64 overflow-y-auto">
-        <Sidebar />
-      </aside>
+    <html lang="en">
 
-      {/* Main Content (with left margin to account for sidebar) */}
-      <main className="flex-1 ml-64">
-        {/* Optional Topbar — paste topbar component here */}
-        <div className="p-12">
-          {/* <Topbar /> */}
-          <div className="mt-4">{children}</div>
+      <body className="flex bg-gray-50">
+        <div className="flex min-h-screen">
+          {/* Fixed Sidebar */}
+          <aside className="fixed left-0 top-0 h-screen w-64 overflow-y-auto">
+            <Sidebar />
+          </aside>
+
+          {/* Main Content with left margin to account for fixed sidebar */}
+          <main className="flex-1 ml-60 p-12">
+            {children}
+          </main>
         </div>
-        
-      </main>
-    </div>
-  );
+      </body>
+    </html>
+  )
 }

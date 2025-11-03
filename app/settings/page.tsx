@@ -1,22 +1,17 @@
-import React from "react";
-import Settingspanel from "./Settingspanel";
- import Topbar from "../settings/Topbar";
+'use client';
 
-
+import React from 'react';
+import Topbar from './Topbar';
+import Settingspanel from './Settingspanel';
 
 function Page() {
   return (
-     <div className="p-6 space-y-1 border-2">
-      
-      
-      <Topbar /> 
-       <div className="mt-4">
-     <Settingspanel/>
-           
-       </div>
-     </div>
-
-
+    <div className="p-6 space-y-1 border-2">
+      <Topbar />
+      <div className="mt-4">
+        <Settingspanel />
+      </div>
+    </div>
   );
 }
 

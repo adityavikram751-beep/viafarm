@@ -2,7 +2,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
   ShoppingBasket,
@@ -11,6 +11,7 @@ import {
   Settings,
   LayoutDashboard,
   Image as ImageIcon,
+  LogOut,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -21,47 +22,61 @@ const routes = [
   { href: "/buyers", label: "Buyers", icon: Users },
   { href: "/orders", label: "Orders", icon: ShoppingCart },
   { href: "/settings", label: "Settings", icon: Settings },
-  { href: "/manageapp", label: "Manage App", icon:ImageIcon },
+  { href: "/manageapp", label: "Manage App", icon: ImageIcon },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+
+  const handleLogout = () => {
+    localStorage.clear()
+    router.push("/")
+  }
 
   return (
-    <aside className="fixed top-0 left-0 h-screen w-64 bg-white rounded-r-4xl border-r-4 flex flex-col border-amber-600">
+    <aside className="fixed top-0 left-0 h-screen w-64 bg-white rounded-r-4xl border-r-4 flex flex-col justify-between border-amber-600">
       {/* Logo */}
-      <div className="p-6 border-b">
-        <h1 className="text-4xl font-bold text-gray-900">Via Farm</h1>
+      <div>
+        <div className="p-6 ">
+          <h1 className="text-4xl font-bold text-gray-900">Via Farm</h1>
+        </div>
+
+        {/* Navigation */}
+        <nav className="p-4 space-y-8">
+          {routes.map((route) => {
+            const Icon = route.icon
+            const isActive = pathname === route.href
+
+            return (
+              <Link key={route.href} href={route.href}>
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    "w-48 justify-start text-gray-900 p-2 m-4 rounded-lg transition-all duration-200 font-semibold",
+                    isActive
+                      ? "bg-green-500 text-white hover:bg-green-500"
+                      : "hover:bg-green-500 hover:text-white"
+                  )}
+                >
+                  <Icon className="mr-2 h-4 w-4" />
+                  {route.label}
+                </Button>
+              </Link>
+            )
+          })}
+        </nav>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-2 space-y-2">
-        {routes.map((route) => {
-          const Icon = route.icon
-          const isActive = pathname === route.href
-
-          return (
-            <Link key={route.href} href={route.href}>
-              <Button
-                variant="ghost"
-                className={cn(
-                  "w-48 justify-start text-gray-900 p-2 m-4 rounded-lg transition-all duration-200 font-semibold",
-                  isActive
-                    ? "bg-green-500 text-white hover:bg-green-500"
-                    : "hover:bg-green-500 hover:text-white"
-                )}
-              >
-                <Icon className="mr-2 h-4 w-4" />
-                {route.label}
-              </Button>
-            </Link>
-          )
-        })}
-      </nav>
-
-      {/* Footer */}
-      <div className="p-4 border-t">
-        <p className="text-xs text-gray-500">© 2025 Via Farm</p>
+      {/* Logout Button */}
+      <div className="mb-16 ml-12">
+        <button
+          onClick={handleLogout}
+          className="flex items-center text-gray-600 hover:text-red-600 transition-all font-semibold"
+        >
+          <LogOut className="mr-3 h-5 w-5" />
+          Logout
+        </button>
       </div>
     </aside>
   )

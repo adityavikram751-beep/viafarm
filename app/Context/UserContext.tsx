@@ -1,47 +1,45 @@
 "use client";
+import React, { createContext, useContext, useState, useEffect } from "react";
 
-import React, { createContext, useState, useContext, useEffect } from "react";
-
-type UserContextType = {
-  profilePic: string;
-  setProfilePic: (url: string) => void;
+interface UserData {
   name: string;
-  setName: (name: string) => void;
-};
+  email: string;
+  picture: string;
+  upiId?: string;
+}
 
-const UserContext = createContext<UserContextType | undefined>(undefined);
+const UserContext = createContext<{
+  user: UserData;
+  setUser: React.Dispatch<React.SetStateAction<UserData>>;
+}>({
+  user: { name: "", email: "", picture: "/about/about.jpg", upiId: "" },
+  setUser: () => {},
+});
 
 export const UserProvider = ({ children }: { children: React.ReactNode }) => {
-  const [profilePic, setProfilePicState] = useState("/profile.jpg");
-  const [name, setName] = useState("Risha Sharma");
+  const [user, setUser] = useState<UserData>({
+    name: "Admin",
+    email: "admin@example.com",
+    picture: "/about/about.jpg",
+    upiId: "",
+  });
 
-  // Load from localStorage
+  // Optional: Load saved user data from localStorage
   useEffect(() => {
-    const savedPic = localStorage.getItem("profilePic");
-    const savedName = localStorage.getItem("userName");
-    if (savedPic) setProfilePicState(savedPic);
-    if (savedName) setName(savedName);
+    const saved = localStorage.getItem("userProfile");
+    if (saved) setUser(JSON.parse(saved));
   }, []);
 
-  const setProfilePic = (url: string) => {
-    setProfilePicState(url);
-    localStorage.setItem("profilePic", url);
-  };
-
-  const handleSetName = (newName: string) => {
-    setName(newName);
-    localStorage.setItem("userName", newName);
-  };
+  // Auto-save to localStorage when user changes
+  useEffect(() => {
+    localStorage.setItem("userProfile", JSON.stringify(user));
+  }, [user]);
 
   return (
-    <UserContext.Provider value={{ profilePic, setProfilePic, name, setName: handleSetName }}>
+    <UserContext.Provider value={{ user, setUser }}>
       {children}
     </UserContext.Provider>
   );
 };
 
-export const useUser = () => {
-  const context = useContext(UserContext);
-  if (!context) throw new Error("useUser must be used within UserProvider");
-  return context;
-};
+export const useUser = () => useContext(UserContext);

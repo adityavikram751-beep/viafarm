@@ -1,97 +1,324 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { Trash2, Loader2, Plus, Link as LinkIcon } from "lucide-react";
 
-interface Banner {
-  id: number;
-  src: string;
-  title?: string;
-}
+const BASE_API = "https://393rb0pp-5000.inc1.devtunnels.ms";
+const POST_BANNERS_URL = `${BASE_API}/api/admin/manage-app/banners`;
+const DELETE_BANNERS_BASE_URL = `${BASE_API}/api/admin/manage-app/banners`;
 
-const initialHomeScreenBanners: Banner[] = [
-  { id: 1, src: "/HomeScreenbannar/grown.png", title: "Grow with care, free from harm" },
-  { id: 2, src: "/HomeScreenbannar/harvested.png", title: "Harvested with care, straight from nature" },
-  { id: 3, src: "/HomeScreenbannar/supporting.png", title: "Supporting farmers, savoring freshness" },
+const AUTH_TOKEN =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZTc5MjQwYzZjNzIzOGM0YTcxNWUyMiIsInJvbGUiOiJBZG1pbiIsImlhdCI6MTc2MTYzMTcyMywiZXhwIjoxNzYyOTI3NzIzfQ.keI3j0tGZKOEWCBE8_t2xkmdCjFto1mwUYKfYQ88kCs";
+
+const PLACEMENT_CONFIG: Record<string, string> = {
+  HomePageSlider: `${BASE_API}/api/admin/public/manage-app/banners/placement/HomePageSlider`,
+  SearchPageAd: `${BASE_API}/api/admin/public/manage-app/banners/placement/SearchPageAd`,
+  CheckoutPromo: `${BASE_API}/api/admin/public/manage-app/banners/placement/CheckoutPromo`,
+  HomePageBottomPromo: `${BASE_API}/api/admin/public/manage-app/banners/placement/HomePageBottomPromo`,
+};
+
+const placementKeysInOrder = [
+  "HomePageSlider",
+  "SearchPageAd",
+  "CheckoutPromo",
+  "HomePageBottomPromo",
 ];
 
-const initialHomeScreen: Banner[] = [
-  { id: 4, src: "/Homescreen/product.png", title: "Products with best deals" },
-  { id: 5, src: "/Homescreen/connect.png", title: "Connect with Farmers" },
-];
+const getGroupName = (placement: string) => {
+  switch (placement) {
+    case "HomePageSlider":
+      return "Home Page Slider Banners";
+    case "SearchPageAd":
+      return "Search Page Ad";
+    case "CheckoutPromo":
+      return "Checkout Promo";
+    case "HomePageBottomPromo":
+      return "Home Page Bottom Promo";
+    default:
+      return placement;
+  }
+};
 
-export default function ManageBanners() {
-  const [homeScreenBanners, setHomeScreenBanners] = useState(initialHomeScreenBanners);
-  const [homeScreen, setHomeScreen] = useState(initialHomeScreen);
+// ---------------- FETCH HOOK ----------------
+const useBannersFetcher = () => {
+  const [banners, setBanners] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleDelete = (id: number, type: "banner" | "home") => {
-    if (type === "banner") {
-      setHomeScreenBanners(homeScreenBanners.filter((b) => b.id !== id));
-    } else {
-      setHomeScreen(homeScreen.filter((b) => b.id !== id));
+  const fetchAllBanners = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const all = await Promise.all(
+        Object.entries(PLACEMENT_CONFIG).map(async ([placement, url]) => {
+          const res = await fetch(url, {
+            headers: { Authorization: `Bearer ${AUTH_TOKEN}` },
+          });
+          if (!res.ok) throw new Error(`${placement} fetch failed`);
+          const data = await res.json();
+          return data.data?.map((b: any) => ({
+            id: b._id,
+            src: b.imageUrl,
+            title: b.title,
+            link: b.link,
+            placement,
+          }));
+        })
+      );
+      setBanners(all.flat());
+    } catch {
+      setError("Failed to fetch banners");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAllBanners();
+  }, [fetchAllBanners]);
+
+  return { banners, loading, error, refetch: fetchAllBanners, setBanners };
+};
+
+// ---------------- BANNER CARD ----------------
+const BannerCard = ({ banner, handleDelete, isDeleting, isVerticalStyle }: any) => {
+  const [connectedUrl, setConnectedUrl] = useState("");
+
+  return (
+    <div className="p-3  transition hover">
+      {/* Image */}
+      <div
+        className={`relative w-full overflow-hidden rounded-lg cursor-pointer ${
+          isVerticalStyle ? "h-[180px]" : "h-[120px]"
+        }`}
+        onClick={() => setConnectedUrl(banner.link || banner.src)} // ✅ Click to show URL
+      >
+        <img
+          src={banner.src}
+          alt={banner.title}
+          className="w-full h-full object-cover border-2 border-green-500 hover:opacity-90 transition"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src =
+              "https://placehold.co/400x150/16a34a/ffffff?text=Banner";
+          }}
+        />
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDelete(banner.id);
+          }}
+          disabled={isDeleting}
+          className={`absolute bottom-2 right-2 bg-white/90 text-gray-800 px-3 py-1 rounded-md text-sm shadow flex items-center gap-1 ${
+            isDeleting
+              ? "bg-gray-300 cursor-not-allowed"
+              : "hover:bg-red-500 hover:text-white"
+          }`}
+        >
+          {isDeleting ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Trash2 className="w-4 h-4" />
+          )}
+          Delete
+        </button>
+      </div>
+
+      {/* Connected URL input */}
+      <div className="mt-3">
+        <label className="block text-sm font-semibold text-gray-700 mb-1 ml-1">
+          Connected URL
+        </label>
+        <div className="relative">
+          <LinkIcon className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            value={connectedUrl}
+            placeholder="Click image to show URL"
+            readOnly
+            className="pl-9 pr-3 py-2 w-full border border-green-400 rounded-md text-sm bg-gray-50 focus:ring-2 focus:ring-green-500 outline-none"
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ---------------- ADD IMAGE BUTTON ----------------
+const AddImagesButton = ({ placement, setBanners }: any) => {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleAdd = async (e: any) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("images", file);
+      formData.append("title", `Banner for ${placement}`);
+      formData.append("link", "https://example.com");
+      formData.append("placement", placement);
+      formData.append("status", "Active");
+
+      const res = await fetch(POST_BANNERS_URL, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${AUTH_TOKEN}` },
+        body: formData,
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.message);
+
+      const newBanner = result.banners[0];
+      setBanners((prev: any) => [
+        ...prev,
+        {
+          id: newBanner._id,
+          src: newBanner.imageUrl,
+          title: newBanner.title,
+          link: newBanner.link,
+          placement: newBanner.placement,
+        },
+      ]);
+      alert(`✅ ${placement} banner added successfully!`);
+    } catch (e) {
+      console.error("error", e);
+      alert("❌ Error while adding banner");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow p-6 space-y-6">
-      <h2 className="text-lg font-semibold mb-4">Manage Banners</h2>
+    <div className="flex justify-center mt-3">
+      <label className="cursor-pointer px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold shadow flex items-center gap-2">
+        {isLoading ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" /> Adding...
+          </>
+        ) : (
+          <>
+            <Plus className="w-4 h-4" /> Add Images
+          </>
+        )}
+        <input
+          type="file"
+          className="hidden"
+          accept="image/*"
+          onChange={handleAdd}
+          disabled={isLoading}
+        />
+      </label>
+    </div>
+  );
+};
 
-      {/* { Home Screen Banner } */}
-      <div>
-        <h3 className="text-sm font-medium mb-3">Home Screen Banner</h3>
-        <div className="flex gap-4 flex-wrap">
-          {homeScreenBanners.map((banner) => (
-            <div
-              key={banner.id}
-              className="relative w-60 h-30 rounded-lg overflow-hidden shadow border"
-            >
-              <img
-                src={banner.src}
-                alt={banner.title}
-                className="w-full h-full object-cover"
-              />
-              <button
-                onClick={() => handleDelete(banner.id, "banner")}
-                className="absolute bottom-2 left-2 bg-white border px-3 py-1 rounded text-sm shadow hover:bg-gray-100"
-              >
-                Delete
-              </button>
-            </div>
-          ))}
-        </div>
-        <button className="mt-3 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm">
-          + Add Images
-        </button>
+// ---------------- MAIN COMPONENT ----------------
+export default function ManageBanners() {
+  const { banners, loading, error, setBanners } = useBannersFetcher();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this banner?")) return;
+    setDeletingId(id);
+    const prev = banners;
+    setBanners((b) => b.filter((x: any) => x.id !== id));
+
+    try {
+      const res = await fetch(`${DELETE_BANNERS_BASE_URL}/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${AUTH_TOKEN}` },
+      });
+      if (!res.ok) throw new Error("Server delete failed");
+    } catch {
+      alert("Delete failed. Restoring banner.");
+      setBanners(prev);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const grouped = useMemo(() => {
+    return banners.reduce((acc: any, b: any) => {
+      acc[b.placement] = acc[b.placement] || [];
+      acc[b.placement].push(b);
+      return acc;
+    }, {});
+  }, [banners]);
+
+  const allGroups = placementKeysInOrder.map((key) => ({
+    placementKey: key,
+    groupName: getGroupName(key),
+    banners: grouped[key] || [],
+  }));
+
+  const left = allGroups.slice(0, 1);
+  const right = allGroups.slice(1);
+
+  if (loading)
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+        <p className="ml-3 text-lg text-gray-600">Loading banners...</p>
       </div>
+    );
 
-      {/* { Home Screen Sections } */}
-      <div>
-        <h3 className="text-sm font-medium mb-3">Home Screen</h3>
-        <div className="flex gap-4 flex-wrap">
-          {homeScreen.map((banner) => (
-            <div
-              key={banner.id}
-              className="relative w-60 h-30 rounded-lg overflow-hidden shadow border"
-            >
-              <img
-                src={banner.src}
-                alt={banner.title}
-                className="w-full h-full object-cover"
+  if (error)
+    return (
+      <div className="text-center p-8 bg-red-100 border border-red-400 text-red-700 rounded-lg max-w-6xl mx-auto mt-8">
+        <p className="font-semibold">API Fetch Error:</p>
+        <p>{error}</p>
+      </div>
+    );
+
+  return (
+    <div className="bg-white rounded-2xl p-8 max-w-6xl mx-auto font-sans">
+      <h2 className="text-3xl font-bold text-gray-800 mb-8">Manage Banners</h2>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-12 items-start">
+        {/* LEFT COLUMN */}
+        <div className="space-y-4 p-4 border-2 border-green-400 rounded-xl shadow-sm">
+          {left.map((group) => (
+            <div key={group.placementKey} className="space-y-4">
+              {group.banners.map((banner) => (
+                <BannerCard
+                  key={banner.id}
+                  banner={banner}
+                  handleDelete={handleDelete}
+                  isDeleting={deletingId === banner.id}
+                  isVerticalStyle={true}
+                />
+              ))}
+              <AddImagesButton
+                placement={group.placementKey}
+                setBanners={setBanners}
               />
-              <button
-                onClick={() => handleDelete(banner.id, "home")}
-                className="absolute bottom-2 left-2 bg-white border px-3 py-1 rounded text-sm shadow hover:bg-gray-100"
-              >
-                Delete
-              </button>
             </div>
           ))}
         </div>
-        <button className="mt-3 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm">
-          + Add Images
-        </button>
+
+        {/* RIGHT COLUMN */}
+        <div className="space-y-8">
+          {right.map((group) => (
+            <div
+              key={group.placementKey}
+              className="space-y-4 p-4 border-2 border-green-400 rounded-xl shadow-sm"
+            >
+              {group.banners.map((banner) => (
+                <BannerCard
+                  key={banner.id}
+                  banner={banner}
+                  handleDelete={handleDelete}
+                  isDeleting={deletingId === banner.id}
+                  isVerticalStyle={false}
+                />
+              ))}
+              <AddImagesButton
+                placement={group.placementKey}
+                setBanners={setBanners}
+              />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

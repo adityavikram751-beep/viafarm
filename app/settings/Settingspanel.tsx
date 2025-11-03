@@ -10,6 +10,7 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("general");
   const [loading, setLoading] = useState(false);
   const [profilePic, setProfilePic] = useState("/profile.jpg");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -27,10 +28,8 @@ export default function SettingsPage() {
     newOrderPlaced: false,
   });
 
-  // ✅ Get Token
   const getToken = () => localStorage.getItem("token");
 
-  // ✅ Safe JSON parser
   const safeJson = async (res: Response) => {
     const text = await res.text();
     try {
@@ -54,6 +53,8 @@ export default function SettingsPage() {
         });
 
         const data = await safeJson(res);
+        console.log("📥 Profile Data:", data);
+
         if (res.ok && data.success && data.data) {
           setFormData((prev) => ({
             ...prev,
@@ -61,7 +62,8 @@ export default function SettingsPage() {
             email: data.data.email || "",
             upiId: data.data.upiId || "",
           }));
-          if (data.data.profilePicture) setProfilePic(data.data.profilePicture);
+          if (data.data.profilePicture)
+            setProfilePic(data.data.profilePicture);
         } else {
           alert(`⚠️ Failed to fetch profile: ${data.message || "Error"}`);
         }
@@ -83,6 +85,7 @@ export default function SettingsPage() {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await safeJson(res);
+        console.log("📥 Notification Data:", data);
         if (res.ok && data) setNotifications(data);
       } catch (error) {
         console.error("❌ Failed to fetch notifications:", error);
@@ -101,6 +104,8 @@ export default function SettingsPage() {
   const handleUpload = (e: any) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setUploadFile(file);
+
     const reader = new FileReader();
     reader.onload = (event: any) => setProfilePic(event.target.result);
     reader.readAsDataURL(file);
@@ -123,6 +128,11 @@ export default function SettingsPage() {
       if (res.ok && data.success) {
         setProfilePic("/profile.jpg");
         alert("✅ Profile picture deleted successfully!");
+        window.dispatchEvent(
+          new CustomEvent("profile-updated", {
+            detail: { profilePicture: "/profile.jpg" },
+          })
+        );
       } else {
         alert(`⚠️ Delete failed: ${data.message || "Error"}`);
       }
@@ -134,30 +144,61 @@ export default function SettingsPage() {
     }
   };
 
-  // ✅ Save Profile Info
+  // ✅ Save Profile Info (FINAL FIXED)
   const handleSave = async () => {
     try {
       setLoading(true);
       const token = getToken();
       if (!token) return alert("⚠️ No token found!");
 
-      const res = await fetch(`${BASE_URL}/api/admin/settings/profile`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          upiId: formData.upiId,
-          profilePicture: profilePic,
-        }),
-      });
+      console.log("🔍 Sending Profile Update:", formData);
+
+      let res;
+      if (uploadFile) {
+        // If a file was uploaded → send as FormData
+        const formDataToSend = new FormData();
+        formDataToSend.append("name", formData.name);
+        formDataToSend.append("email", formData.email);
+        formDataToSend.append("upiId", formData.upiId);
+        formDataToSend.append("profilePicture", uploadFile);
+
+        res = await fetch(`${BASE_URL}/api/admin/settings/profile`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formDataToSend,
+        });
+      } else {
+        // Else send normal JSON (Base64 or default image)
+        res = await fetch(`${BASE_URL}/api/admin/settings/profile`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            upiId: formData.upiId,
+            profilePicture: profilePic,
+          }),
+        });
+      }
 
       const data = await safeJson(res);
+      console.log("📩 Response from backend:", data);
+
       if (res.ok && data.success) {
         alert("✅ Profile updated successfully!");
+
+        window.dispatchEvent(
+          new CustomEvent("profile-updated", {
+            detail: {
+              name: formData.name,
+              email: formData.email,
+              profilePicture: profilePic,
+            },
+          })
+        );
       } else {
         alert(`❌ Update failed: ${data.message || "Unknown error"}`);
       }
@@ -251,7 +292,6 @@ export default function SettingsPage() {
     }
   };
 
-  // ✅ Loader
   if (loading)
     return (
       <div className="flex justify-center items-center h-screen text-lg font-medium">
@@ -259,7 +299,6 @@ export default function SettingsPage() {
       </div>
     );
 
-  // ✅ Layout
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
       {/* Sidebar */}
@@ -292,7 +331,7 @@ export default function SettingsPage() {
       <div className="flex-1 overflow-y-auto bg-white p-10 rounded-l-2xl shadow-md">
         {activeTab === "general" && (
           <div className="space-y-10 pb-16">
-            {/* Profile Info Box */}
+            {/* Profile Info */}
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 shadow-sm">
               <h3 className="font-semibold text-gray-800 mb-5">Profile Info</h3>
               <div className="flex items-center gap-10 mb-6">
@@ -364,7 +403,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Change Password Box */}
+            {/* Password Change */}
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 shadow-sm">
               <h3 className="font-semibold text-gray-800 mb-5">
                 Change Password

@@ -16,7 +16,7 @@ export default function RootLayout({
   return (
     <html lang="en">
 
-      <body className="flex bg-gray-50">
+      <body className="flex bg-gray-100">
         <div className="flex min-h-screen">
           {/* Fixed Sidebar */}
           <aside className="fixed left-0 top-0 h-screen w-64 overflow-y-auto">

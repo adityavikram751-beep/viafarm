@@ -64,7 +64,7 @@ interface BuyerDetail {
 
 const BASE_URL = "https://393rb0pp-5000.inc1.devtunnels.ms";
 const TOKEN =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZTc5MjQwYzZjNzIzOGM0YTcxNWUyMiIsInJvbGUiOiJBZG1pbiIsImlhdCI6MTc2MDQzNTM2OCwiZXhwIjoxNzYxNzMxMzY4fQ.Umf828P-yjtV-9sPMf8BPig6QESkn5G9RbXbGpSFzjc";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZTc5MjQwYzZjNzIzOGM0YTcxNWUyMiIsInJvbGUiOiJBZG1pbiIsImlhdCI6MTc2MTc5OTI5NSwiZXhwIjoxNzYzMDk1Mjk1fQ.kPQmYtbofSNLN7G0nVhqqOw4tTZWqigFd-AdPlAsFgY";
 
 export default function BuyersPanel() {
   const [buyers, setBuyers] = useState<Buyer[]>([]);
@@ -105,20 +105,25 @@ export default function BuyersPanel() {
     fetchBuyers();
   }, []);
 
-  // 🔍 Search Filter
-  useEffect(() => {
-    const q = searchQuery.toLowerCase();
-    const result = buyers.filter((b) => {
-      const location = getLocation(b.addresses).toLowerCase();
-      return (
-        b.name.toLowerCase().includes(q) ||
-        b.mobileNumber.includes(q) ||
-        location.includes(q)
-      );
-    });
-    setFilteredBuyers(result);
-    setCurrentPage(1);
-  }, [searchQuery, buyers]);
+ // 🔍 Search Filter
+useEffect(() => {
+  const q = searchQuery.toLowerCase();
+
+  const result = buyers.filter((b) => {
+    const name = b.name?.toLowerCase() || "";
+    const mobile = b.mobileNumber?.toString().toLowerCase() || "";
+    const location = getLocation(b.addresses)?.toLowerCase() || "";
+
+    return (
+      name.includes(q) ||
+      mobile.includes(q) ||
+      location.includes(q)
+    );
+  });
+
+  setFilteredBuyers(result);
+  setCurrentPage(1);
+}, [searchQuery, buyers]);
 
   // 🔁 Sort by Name
   const handleSort = () => {
