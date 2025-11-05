@@ -197,7 +197,7 @@ export default function BuyerOrdersPanel() {
               ))}
             </div>
           )}
-        </div>
+        </div> 
       </div>
 
       {/* 🧾 Orders Table */}
