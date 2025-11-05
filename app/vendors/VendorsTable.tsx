@@ -50,7 +50,7 @@ interface Product {
 
 export default function Vendors() {
   const [mode, setMode] = useState<"list" | "alert">("list");
-  const [openMenu, setOpenMenu] = useState<number | null>(null);
+  const [openMenu, setOpenMenu] = useState<number | null>(null); // -1 used for filter dropdown
   const [currentPage, setCurrentPage] = useState(1);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
@@ -59,7 +59,6 @@ export default function Vendors() {
   const [showRejectedView, setShowRejectedView] = useState(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
-  // MAIN page vendor-status filter (keeps vendors list filtering)
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -75,8 +74,11 @@ export default function Vendors() {
   // compact popup for alert-mode View
   const [showCompactView, setShowCompactView] = useState(false);
 
+  // separate refs for per-row menu and the filter dropdown
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const rowsPerPage = 8;
+  const filterRef = useRef<HTMLDivElement | null>(null);
+
+  const rowsPerPage = 12;
 
   // product categories we want to show as buttons inside modal
   const PRODUCT_CATEGORIES = [
@@ -95,9 +97,7 @@ export default function Vendors() {
     const matchesSearch =
       vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vendor.mobileNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vendor.address?.city
-        ?.toLowerCase()
-        .includes(searchTerm.toLowerCase());
+      vendor.address?.city?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus =
       selectedCategory === "All" || vendor.status === selectedCategory;
@@ -117,7 +117,7 @@ export default function Vendors() {
         setLoading(true);
         const token = localStorage.getItem("token");
         const res = await axios.get(
-          "https://393rb0pp-5000.inc1.devtunnels.ms/api/admin/vendors",
+          "https://viafarm-1.onrender.com/api/admin/vendors",
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setVendors(res.data.data || []);
@@ -132,7 +132,12 @@ export default function Vendors() {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const clickedInsideMenu = menuRef.current?.contains(target);
+      const clickedInsideFilter = filterRef.current?.contains(target);
+
+      // If clicked outside both, close any open dropdown/menu
+      if (!clickedInsideMenu && !clickedInsideFilter) {
         setOpenMenu(null);
       }
     };
@@ -161,7 +166,7 @@ export default function Vendors() {
       const token = localStorage.getItem("token");
 
       const res = await axios.get(
-        `https://393rb0pp-5000.inc1.devtunnels.ms/api/admin/vendor/${vendor._id}`,
+        `https://viafarm-1.onrender.com/api/admin/vendor/${vendor._id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -185,7 +190,7 @@ export default function Vendors() {
       const newStatus = vendor.status === "Blocked" ? "Active" : "Blocked";
 
       const res = await axios.put(
-        `https://393rb0pp-5000.inc1.devtunnels.ms/api/admin/vendors/${vendor._id}/status`,
+        `https://viafarm-1.onrender.com/api/admin/vendors/${vendor._id}/status`,
         { status: newStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -208,7 +213,7 @@ export default function Vendors() {
 
     try {
       const token = localStorage.getItem("token");
-      const base = "https://393rb0pp-5000.inc1.devtunnels.ms/api/admin/vendors";
+      const base = "https://viafarm-1.onrender.com/api/admin/vendors";
 
       // working implementation:
       const res = await axios.put(
@@ -252,7 +257,7 @@ export default function Vendors() {
 
     try {
       const token = localStorage.getItem("token");
-      const base = "https://393rb0pp-5000.inc1.devtunnels.ms/api/admin/vendors";
+      const base = "https://viafarm-1.onrender.com/api/admin/vendors";
 
       const res = await axios.put(
         `${base}/${selectedVendor._id}/reject`,
@@ -293,7 +298,7 @@ export default function Vendors() {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.delete(
-        `https://393rb0pp-5000.inc1.devtunnels.ms/api/admin/vendors/${vendor._id}`,
+        `https://viafarm-1.onrender.com/api/admin/vendors/${vendor._id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -364,11 +369,11 @@ export default function Vendors() {
       <div className="bg-white p-4 rounded-xl shadow-md relative">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg w-72">
+          <div className="flex items-center gap-2 px-4 py-2 w-72 border border-gray-300 bg-white rounded-xl shadow-sm">
             <Search className="w-4 h-4 text-gray-500" />
             <input
               type="text"
-              placeholder="Search by name, number or city..."
+              placeholder="Search "
               className="bg-transparent outline-none text-sm w-full"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -413,22 +418,35 @@ export default function Vendors() {
               </button>
             </div>
 
-            <div className="flex items-center gap-2 border border-gray-300 bg-white px-4 py-2 rounded-2xl text-gray-700 font-medium text-sm hover:bg-gray-50 transition">
-              <SlidersHorizontal className="w-5 h-5 text-gray-600" />
-              <select
-                value={selectedCategory}
-                onChange={(e) => {
-                  setSelectedCategory(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="bg-transparent outline-none text-sm text-gray-700"
+            {/* 🔽 FILTER BUTTON WITH DROPDOWN (always says "Filter") */}
+            <div className="relative" ref={filterRef}>
+              <button
+                onClick={() => setOpenMenu(openMenu === -1 ? null : -1)}
+                className="flex items-center gap-3 border border-gray-300 bg-white px-5 py-2 rounded-2xl text-gray-700 font-medium text-semibold hover:bg-gray-50 transition"
               >
-                <option value="All">All</option>
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-                <option value="Blocked">Blocked</option>
-                <option value="Rejected">Rejected</option>
-              </select>
+                <SlidersHorizontal className="w-5 h-5 text-gray-600" />
+                <span>Filters</span>
+              </button>
+
+              {openMenu === -1 && (
+                <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 shadow-lg rounded-lg z-50">
+                  {["All", "Active", "Inactive", "Blocked", "Rejected"].map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => {
+                        setSelectedCategory(status);
+                        setCurrentPage(1);
+                        setOpenMenu(null);
+                      }}
+                      className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                        selectedCategory === status ? "bg-gray-100 font-semibold" : ""
+                      }`}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -448,19 +466,13 @@ export default function Vendors() {
             <tbody>
               {paginatedVendors.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="text-center py-6 text-gray-500 font-medium"
-                  >
+                  <td colSpan={5} className="text-center py-6 text-gray-500 font-medium">
                     No vendors found matching your search.
                   </td>
                 </tr>
               ) : (
                 paginatedVendors.map((vendor, i) => (
-                  <tr
-                    key={i}
-                    className="border-b hover:bg-gray-50 transition-colors relative"
-                  >
+                  <tr key={i} className="border-b hover:bg-gray-50 transition-colors relative">
                     <td className="p-3">{vendor.name}</td>
                     <td className="p-3">{vendor.address?.city || "—"}</td>
                     <td className="p-3">{vendor.mobileNumber}</td>
@@ -536,12 +548,13 @@ export default function Vendors() {
                                 View
                               </button>
                               <button
-                                onClick={() => handleToggleBlock(vendor)}
+                                onClick={() => {
+                                  handleToggleBlock(vendor);
+                                  setOpenMenu(null);
+                                }}
                                 className="block w-full text-left px-4 py-2 hover:bg-gray-100"
                               >
-                                {vendor.status === "Blocked"
-                                  ? "Unblock User"
-                                  : "Block User"}
+                                {vendor.status === "Blocked" ? "Unblock User" : "Block User"}
                               </button>
                               <button
                                 onClick={() => {
@@ -589,169 +602,165 @@ export default function Vendors() {
         </div>
       </div>
 
-    {/* 🌿 Vendor Detail View Modal */}
-{showModal && selectedVendor && (
-  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-2xl shadow-2xl w-[720px] max-h-[90vh] overflow-y-auto p-6 relative">
-      {/* ❌ Close Button */}
-      <button
-        onClick={() => setShowModal(false)}
-        className="absolute top-5 right-5 text-gray-500 hover:text-gray-800 transition"
-      >
-        <X className="w-6 h-6" />
-      </button>
+      {/* 🌿 Vendor Detail View Modal */}
+      {showModal && selectedVendor && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-[720px] max-h-[90vh] overflow-y-auto p-6 relative">
+            {/* ❌ Close Button */}
+            <button
+              onClick={() => setShowModal(false)}
+              className="absolute top-5 right-5 text-gray-500 hover:text-gray-800 transition"
+            >
+              <X className="w-6 h-6" />
+            </button>
 
-      {/* 🧾 Vendor Header */}
-      <h2 className="text-lg font-semibold text-gray-900 mb-8 border-b pb-2">
-        {selectedVendor.name}
-      </h2>
+            {/* 🧾 Vendor Header */}
+            <h2 className="text-lg font-semibold text-gray-900 mb-8 border-b pb-2">
+              {selectedVendor.name}
+            </h2>
 
-      {/* 🧍 Vendor Info */}
-      <div className="flex items-center gap-18 mb-6">
-        <Image
-          src={selectedVendor.profilePicture || "/castomer/castomer.png"}
-          alt={selectedVendor.name}
-          width={260}
-          height={260}
-          className="rounded-xl object-cover border"
-        />
-        <div className="flex-1">
-          <h3 className="text-[20px] font-semibold text-gray-800 mb-1">
-            {selectedVendor.name}
-          </h3>
+            {/* 🧍 Vendor Info */}
+            <div className="flex items-center gap-18 mb-6">
+              <Image
+                src={selectedVendor.profilePicture || "/castomer/castomer.png"}
+                alt={selectedVendor.name}
+                width={260}
+                height={260}
+                className="rounded-xl object-cover border"
+              />
+              <div className="flex-1">
+                <h3 className="text-[20px] font-semibold text-gray-800 mb-1">
+                  {selectedVendor.name}
+                </h3>
 
-          <p className="text-[16px] text-gray-800 mb-1">
-            <span className="font-medium inline-block w-[80px]">Location</span> -{" "}
-            {`${selectedVendor.address?.houseNumber || ""}, ${
-              selectedVendor.address?.locality || ""
-            }, ${selectedVendor.address?.city || ""}`}
-          </p>
+                <p className="text-[16px] text-gray-800 mb-1">
+                  <span className="font-medium inline-block w-[80px]">Location</span> -{" "}
+                  {`${selectedVendor.address?.houseNumber || ""}, ${
+                    selectedVendor.address?.locality || ""
+                  }, ${selectedVendor.address?.city || ""}`}
+                </p>
 
-          <p className="text-[16px] text-gray-800 mb-1">
-            <span className="font-medium inline-block w-[100px]">Contact No.</span> -{" "}
-            {selectedVendor.mobileNumber}
-          </p>
+                <p className="text-[16px] text-gray-800 mb-1">
+                  <span className="font-medium inline-block w-[100px]">Contact No.</span> -{" "}
+                  {selectedVendor.mobileNumber}
+                </p>
 
-          <span
-            className={`mt-3 inline-block px-4 py-1 text-[16px] rounded-full font-medium ${
-              selectedVendor.status === "Active"
-                ? "bg-green-200 text-green-700"
-                : "bg-red-200 text-red-700"
-            }`}
-          >
-            {selectedVendor.status || "Inactive"}
-          </span>
-        </div>
-      </div>
-
-      {/* 🧾 About Section */}
-      <div className="mb-4">
-        <h3 className="text-gray-800 font-semibold mb-1">About the Vendor</h3>
-        <p className="text-sm text-gray-600 leading-relaxed">
-          {selectedVendor.vendorDetails?.about ||
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."}
-        </p>
-      </div>
-
-      {/* 🛍️ Listed Products Header */}
-      <div className="flex justify-between items-center mb-3">
-        <h4 className="font-semibold text-gray-800">Listed Products</h4>
-
-        <select
-          value={modalCategory}
-          onChange={(e) => setModalCategory(e.target.value)}
-          className="border border-gray-300 rounded-full px-3 py-1.5 text-gray-800 text-sm bg-white focus:outline-none"
-        >
-          <option value="All Categories">All Categories</option>
-          <option value="Fruits">Fruits</option>
-          <option value="Vegetables">Vegetables</option>
-          <option value="Seeds">Seeds</option>
-          <option value="Plants">Plants</option>
-          <option value="Handicrafts">Handicrafts</option>
-        </select>
-      </div>
-
-      {/* 🧺 Product Cards */}
-      {displayedProducts.length === 0 ? (
-        <p className="text-sm text-gray-500">No products found.</p>
-      ) : (
-        displayedProducts.map((product) => (
-          <div
-            key={product._id}
-            className="border border-yellow-400 rounded-2xl bg-white shadow-sm mb-4 overflow-hidden transition hover:shadow-md"
-          >
-            <div className="flex">
-              {/* 🖼 Product Image */}
-              <div className="w-[35%] h-[160px]">
-                <Image
-                  src={product.images?.[0] || "/products/sample.png"}
-                  alt={product.name}
-                  width={300}
-                  height={200}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-
-              {/* 📋 Product Info */}
-              <div className="flex-1 p-4 flex flex-col justify-between">
-                <div>
-                  <div className="flex justify-between items-start mb-1">
-                    <h3 className="text-base font-semibold text-gray-800">
-                      {product.name}
-                    </h3>
-
-                    {/* 🟢 In Stock with Icon */}
-                    <span
-                      className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border ${
-                        /^in\s*stock$/i.test(product.status)
-                          ? "border-gray-400  text-green-700"
-                          : "border-gray-400  text-red-700"
-                      }`}
-                    >
-                      <span
-                        className={`w-2 h-2 rounded-full ${
-                          /^in\s*stock$/i.test(product.status)
-                            ? "bg-green-500"
-                            : "bg-red-500"
-                        }`}
-                      ></span>
-                      {product.status}
-                    </span>
-                  </div>
-
-                  <p className="text-[16px] text-gray-800">
-                    by <span className="">{selectedVendor.name}</span>
-                  </p>
-
-                  <p className="text- text-gray-800 mt-1">
-                    Price :{" "}
-                    <span className=" text-gray-800">
-                      ₹ {product.price}
-                      {product.unit ? `/${product.unit}` : ""}
-                    </span>
-                  </p>
-                </div>
-
-                <div className="text-[16px] text-gray-500 mt- border-t border-gray-100 pt-2">
-                  Uploaded on {formatDate(product.createdAt)}
-                </div>
+                <span
+                  className={`mt-3 inline-block px-4 py-1 text-[16px] rounded-full font-medium ${
+                    selectedVendor.status === "Active"
+                      ? "bg-green-200 text-green-700"
+                      : "bg-red-200 text-red-700"
+                  }`}
+                >
+                  {selectedVendor.status || "Inactive"}
+                </span>
               </div>
             </div>
-          </div>
-        ))
-      )}
-    </div>
-  </div>
-)}
 
-      {/* COMPACT ALERT VIEW (unchanged) */}
+            {/* 🧾 About Section */}
+            <div className="mb-4">
+              <h3 className="text-gray-800 font-semibold mb-1">About the Vendor</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                {selectedVendor.vendorDetails?.about ||
+                  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."}
+              </p>
+            </div>
+
+            {/* 🛍️ Listed Products Header */}
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="font-semibold text-gray-800">Listed Products</h4>
+
+              <select
+                value={modalCategory}
+                onChange={(e) => setModalCategory(e.target.value)}
+                className="border border-gray-300 rounded-full px-3 py-1.5 text-gray-800 text-sm bg-white focus:outline-none"
+              >
+                <option value="All Categories">All Categories</option>
+                <option value="Fruits">Fruits</option>
+                <option value="Vegetables">Vegetables</option>
+                <option value="Seeds">Seeds</option>
+                <option value="Plants">Plants</option>
+                <option value="Handicrafts">Handicrafts</option>
+              </select>
+            </div>
+
+            {/* 🧺 Product Cards */}
+            {displayedProducts.length === 0 ? (
+              <p className="text-sm text-gray-500">No products found.</p>
+            ) : (
+              displayedProducts.map((product) => (
+                <div
+                  key={product._id}
+                  className="border border-yellow-400 rounded-2xl bg-white shadow-sm mb-4 overflow-hidden transition hover:shadow-md"
+                >
+                  <div className="flex">
+                    {/* 🖼 Product Image */}
+                    <div className="w-[35%] h-[160px]">
+                      <Image
+                        src={product.images?.[0] || "/products/sample.png"}
+                        alt={product.name}
+                        width={300}
+                        height={200}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+
+                    {/* 📋 Product Info */}
+                    <div className="flex-1 p-4 flex flex-col justify-between">
+                      <div>
+                        <div className="flex justify-between items-start mb-1">
+                          <h3 className="text-base font-semibold text-gray-800">
+                            {product.name}
+                          </h3>
+
+                          {/* 🟢 In Stock with Icon */}
+                          <span
+                            className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border ${
+                              /^in\s*stock$/i.test(product.status)
+                                ? "border-gray-400  text-green-700"
+                                : "border-gray-400  text-red-700"
+                            }`}
+                          >
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                /^in\s*stock$/i.test(product.status) ? "bg-green-500" : "bg-red-500"
+                              }`}
+                            ></span>
+                            {product.status}
+                          </span>
+                        </div>
+
+                        <p className="text-[16px] text-gray-800">
+                          by <span className="">{selectedVendor.name}</span>
+                        </p>
+
+                        <p className="text- text-gray-800 mt-1">
+                          Price :{" "}
+                          <span className=" text-gray-800">
+                            ₹ {product.price}
+                            {product.unit ? `/${product.unit}` : ""}
+                          </span>
+                        </p>
+                      </div>
+
+                      <div className="text-[16px] text-gray-500 mt- border-t border-gray-100 pt-2">
+                        Uploaded on {formatDate(product.createdAt)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* COMPACT ALERT VIEW */}
       {showCompactView && selectedVendor && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-[#f8f8f8] rounded-xl shadow-lg w-[685px] max-h-[90vh] overflow-y-auto p-5 relative">
             <div className="flex justify-between items-center mb-4 border-b-2 border-gray-200">
-              <h2 className="text-gray-800 font-semibold text-lg">
-                {selectedVendor.name}
-              </h2>
+              <h2 className="text-gray-800 font-semibold text-lg">{selectedVendor.name}</h2>
               <button
                 onClick={() => {
                   setShowCompactView(false);
@@ -775,9 +784,7 @@ export default function Vendors() {
               </div>
 
               <div className="flex-1">
-                <h3 className="text-[18px] font-semibold text-gray-800">
-                  {selectedVendor.name}
-                </h3>
+                <h3 className="text-[18px] font-semibold text-gray-800">{selectedVendor.name}</h3>
                 <p className="text-sm text-gray-700">
                   <span className="font-semibold">Location</span> –{" "}
                   {`${selectedVendor.address?.houseNumber || ""}, ${
@@ -785,8 +792,7 @@ export default function Vendors() {
                   }, ${selectedVendor.address?.city || "N/A"}`}
                 </p>
                 <p className="text-sm text-gray-700">
-                  <span className="font-semibold">Contact No.</span> –{" "}
-                  {selectedVendor.mobileNumber}
+                  <span className="font-semibold">Contact No.</span> – {selectedVendor.mobileNumber}
                 </p>
               </div>
             </div>
@@ -807,9 +813,7 @@ export default function Vendors() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-[#f8f8f8] rounded-xl shadow-lg w-[685px] h-[817px] max-h-[90vh] overflow-y-auto p-5 relative">
             <div className="flex justify-between items-center mb-4 border-b-2 border-gray-200">
-              <h2 className="text-gray-800 font-semibold text-lg">
-                {selectedVendor.name}
-              </h2>
+              <h2 className="text-gray-800 font-semibold text-lg">{selectedVendor.name}</h2>
               <button
                 onClick={() => {
                   setShowRejectedView(false);
@@ -830,9 +834,7 @@ export default function Vendors() {
                 className="rounded-xl object-cover border"
               />
               <div className="flex flex-col gap-2">
-                <h3 className="text-[18px] font-semibold text-gray-800">
-                  {selectedVendor.name}
-                </h3>
+                <h3 className="text-[18px] font-semibold text-gray-800">{selectedVendor.name}</h3>
                 <p className="text-sm text-gray-700">
                   <span className="font-semibold">Location</span> –{" "}
                   {`${selectedVendor.address?.houseNumber || ""}, ${
@@ -840,8 +842,7 @@ export default function Vendors() {
                   }, ${selectedVendor.address?.city || "N/A"}`}
                 </p>
                 <p className="text-sm text-gray-700">
-                  <span className="font-semibold">Contact No.</span> –{" "}
-                  {selectedVendor.mobileNumber}
+                  <span className="font-semibold">Contact No.</span> – {selectedVendor.mobileNumber}
                 </p>
                 <span className="mt-1 px-3 py-1 w-fit text-xs rounded-full font-medium bg-red-100 text-red-700">
                   Rejected
@@ -872,9 +873,7 @@ export default function Vendors() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-lg w-[450px] p-6 relative">
             <div className="flex justify-between items-center border-b border-gray-200 pb-3">
-              <h3 className="text-lg font-semibold text-gray-800">
-                Reason for Rejection
-              </h3>
+              <h3 className="text-lg font-semibold text-gray-800">Reason for Rejection</h3>
               <button
                 onClick={() => {
                   setShowRejectModal(false);
@@ -887,9 +886,7 @@ export default function Vendors() {
               </button>
             </div>
 
-            <p className="text-sm text-gray-700 mt-4 mb-3">
-              Write your reason to reject the vendor
-            </p>
+            <p className="text-sm text-gray-700 mt-4 mb-3">Write your reason to reject the vendor</p>
 
             <textarea
               value={rejectReason}

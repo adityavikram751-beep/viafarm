@@ -2,6 +2,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
@@ -38,8 +39,15 @@ export function Sidebar() {
     <aside className="fixed top-0 left-0 h-screen w-64 bg-white rounded-r-4xl border-r-4 flex flex-col justify-between border-amber-600">
       {/* Logo */}
       <div>
-        <div className="p-6 ">
-          <h1 className="text-4xl font-bold text-gray-900">Via Farm</h1>
+        <div className="p-4 flex flex-col items-center justify-center">
+          <Image
+            src="/images/logo.png"
+            alt="Via Farming Logo"
+            width={90}
+            height={90}
+            className="object-contain rounded-full shadow-sm"
+            priority
+          />
         </div>
 
         {/* Navigation */}
@@ -53,7 +61,7 @@ export function Sidebar() {
                 <Button
                   variant="ghost"
                   className={cn(
-                    "w-48 justify-start text-gray-900 p-2 m-4 rounded-lg transition-all duration-200 font-semibold",
+                    "w-48 justify-start text-base text-gray-900 p-2 m-4 rounded-lg transition-all duration-200 font-semibold",
                     isActive
                       ? "bg-green-500 text-white hover:bg-green-500"
                       : "hover:bg-green-500 hover:text-white"

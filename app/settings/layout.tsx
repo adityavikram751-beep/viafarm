@@ -4,7 +4,7 @@ import { Sidebar } from "../login/sidebar"
 
 export const metadata: Metadata = {
   title: "Via-Farm Admin Dashboard",
-  description: "Admin panel for managing vendors, buyers, products, orders,settings,manage App",
+  description: "Admin panel for managing vendors, buyers, products, and orders",
 }
 
 export default function RootLayout({
@@ -15,15 +15,15 @@ export default function RootLayout({
   return (
     <html lang="en">
 
-      <body className="flex bg-gray-50">
+      <body className="flex bg-gray-100">
         <div className="flex min-h-screen">
           {/* Fixed Sidebar */}
-          <aside className="fixed left-0 top-0 h-screen w-64 overflow-y-auto">
+          <aside className="fixed left-0 top-0 h-screen w-24 overflow-y-auto ">
             <Sidebar />
           </aside>
 
           {/* Main Content with left margin to account for fixed sidebar */}
-          <main className="flex-1 ml-48 p-6">
+          <main className="flex-1 ml-52 p-0">
             {children}
           </main>
         </div>

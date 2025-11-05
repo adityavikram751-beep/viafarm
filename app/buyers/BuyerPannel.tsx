@@ -62,7 +62,7 @@ interface BuyerDetail {
   }[];
 }
 
-const BASE_URL = "https://393rb0pp-5000.inc1.devtunnels.ms";
+const BASE_URL = "https://viafarm-1.onrender.com";
 const TOKEN =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZTc5MjQwYzZjNzIzOGM0YTcxNWUyMiIsInJvbGUiOiJBZG1pbiIsImlhdCI6MTc2MTc5OTI5NSwiZXhwIjoxNzYzMDk1Mjk1fQ.kPQmYtbofSNLN7G0nVhqqOw4tTZWqigFd-AdPlAsFgY";
 
@@ -237,11 +237,11 @@ useEffect(() => {
     <div className="bg-white p-4 rounded-xl shadow-md relative">
       {/* 🔍 Search + Sort */}
       <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg w-64">
+        <div className="flex items-center gap-2 px-4 py-2 w-72 border border-gray-300 bg-white rounded-xl shadow-sm">
           <Search className="w-4 h-4 text-gray-500" />
           <input
             type="text"
-            placeholder="Search buyers..."
+            placeholder="Search "
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="bg-transparent outline-none text-sm w-full"
@@ -249,7 +249,7 @@ useEffect(() => {
         </div>
         <button
           onClick={handleSort}
-          className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200"
+          className="flex items-center gap-2 border border-gray-300  bg-white px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200"
         >
           <ArrowUpDown className="w-4 h-4" /> Sort by
         </button>

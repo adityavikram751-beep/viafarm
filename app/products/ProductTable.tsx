@@ -13,6 +13,7 @@ import {
   Star,
   Pencil,
   PlusCircle,
+  SlidersHorizontal,
 } from "lucide-react";
 
 // ----------------------------------------------------
@@ -20,7 +21,7 @@ import {
 // ----------------------------------------------------
 
 // Base API URL
-const BASE_URL = "https://393rb0pp-5000.inc1.devtunnels.ms";
+const BASE_URL = "https://viafarm-1.onrender.com";
 const API_LIST_URL = `${BASE_URL}/api/admin/products`;
 
 // Helper function to map API data
@@ -274,11 +275,11 @@ export default function ProductTable() {
       
       {/* Search + Filter UI (Unchanged) */}
       <div className="flex justify-between items-center p-4 border-b relative">
-        <div className="flex items-center w-1/3 bg-gray-100 px-3 py-2 rounded-lg">
+         <div className="flex items-center gap-2 px-4 py-2 w-72 border border-gray-300 bg-white rounded-xl shadow-sm">
           <Search className="w-4 h-4 text-gray-500" />
           <input
             type="text"
-            placeholder="Search by name, vendor, category..."
+            placeholder="Search "
             className="ml-2 w-full bg-transparent outline-none text-sm"
             value={searchQuery}
             onChange={(e) => {
@@ -289,18 +290,18 @@ export default function ProductTable() {
         </div>
 
         <div className="relative" ref={filterRef}>
+          {/* 🔥 Filter Button (screenshot-style) */}
           <button
             onClick={() => setOpenFilter((prev) => !prev)}
-            className="flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50"
+            className="flex items-center gap-2 px-5 py-2 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 shadow-sm transition-all duration-150"
           >
-            <Filter className="w-4 h-4" />
-            {selectedCategory}
-            <ChevronDown className="w-4 h-4" />
+            <SlidersHorizontal className="w-4 h-4 text-gray-600" />
+            <span>Filters</span>
           </button>
 
           {/* Dynamic Filter Dropdown */}
           {openFilter && (
-            <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+            <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto">
               {categories.map((cat) => (
                 <button
                   key={cat}
@@ -310,7 +311,7 @@ export default function ProductTable() {
                     setCurrentPage(1);
                   }}
                   className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-                    selectedCategory === cat ? "bg-blue-50 text-blue-600" : ""
+                    selectedCategory === cat ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"
                   }`}
                 >
                   {cat}
@@ -609,7 +610,7 @@ function AddNutritionDrawer({
   onClose: (productId: string | null) => void;
   onSaved: (productId: string | null, savedData: any) => void;
 }) {
-  const BASE_URL = "https://393rb0pp-5000.inc1.devtunnels.ms";
+  const BASE_URL = "https://viafarm-1.onrender.com";
   const productId = product?.id;
   const API_UPDATE_URL = `${BASE_URL}/api/admin/products/${productId}/nutritional-value`; 
 

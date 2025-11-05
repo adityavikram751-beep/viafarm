@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 /* ---------------- CONFIG ---------------- */
-const BASE_API = "https://393rb0pp-5000.inc1.devtunnels.ms";
+const BASE_API = "https://viafarm-1.onrender.com";
 const CATEGORIES_BASE = `${BASE_API}/api/admin/manage-app/categories`;
 const COUPONS_BASE = `${BASE_API}/api/admin/manage-app/coupons`;
 const SUPPORT_BASE = `${BASE_API}/api/admin/manage-app/customer-support`;
@@ -633,9 +633,9 @@ export default function ManageApp() {
 
   /* ---------------- RENDER ---------------- */
   return (
-    <div className="flex bg-[#f9fafb] h-screen overflow-hidden">
+    <div className="flex bg-gray-100 h-screen overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-64 bg-[#f3f4f6] border-r border-gray-200 p-5 fixed h-full">
+      <aside className="w-64 bg-gray-200 border-r border-gray-200 p-8 fixed h-full">
         <nav className="flex flex-col gap-4">
           {tabs.map((tab) => (
             <button
@@ -801,7 +801,7 @@ export default function ManageApp() {
                 <div className="text-sm text-gray-500">Loading...</div>
               ) : (
                 <div className="space-y-4 max-w-lg">
-                  <div className="flex items-center justify-between py-2 border-b last:border-b-0">
+                  <div className="flex items-center justify-between py-2  last:border-b-0">
                     <div className="text-base font-medium text-gray-800">Order Placed</div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -814,7 +814,7 @@ export default function ManageApp() {
                     </label>
                   </div>
 
-                  <div className="flex items-center justify-between py-2 border-b last:border-b-0">
+                  <div className="flex items-center justify-between py-2 border last:border-b-0">
                     <div className="text-base font-medium text-gray-800">Order Cancelled</div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -827,7 +827,7 @@ export default function ManageApp() {
                     </label>
                   </div>
 
-                  <div className="flex items-center justify-between py-2 border-b last:border-b-0">
+                  <div className="flex items-center justify-between py-2  last:border-b-0">
                     <div className="text-base font-medium text-gray-800">Order Picked up/Delivered</div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -927,7 +927,7 @@ export default function ManageApp() {
             <h3 className="text-2xl font-medium text-gray-800 mb-6">Terms & Conditions</h3>
 
             {/* edit pen */}
-            <button onClick={openTermsEditor} title="Edit terms" className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-md border border-sky-200 bg-white hover:bg-sky-50">
+            <button onClick={openTermsEditor} title="Edit terms" className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-md  bg-white hover:bg-sky-50">
               <Edit className="text-sky-500" size={18} />
             </button>
 

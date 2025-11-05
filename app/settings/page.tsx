@@ -6,7 +6,7 @@ import Settingspanel from './Settingspanel';
 
 function Page() {
   return (
-    <div className="p-6 space-y-1 border-2">
+    <div className="p-6 space-y-1 ">
       <Topbar />
       <div className="mt-4">
         <Settingspanel />

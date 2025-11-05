@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { Trash2, Loader2, Plus, Link as LinkIcon } from "lucide-react";
 
-const BASE_API = "https://393rb0pp-5000.inc1.devtunnels.ms";
+const BASE_API = "https://viafarm-1.onrender.com";
 const POST_BANNERS_URL = `${BASE_API}/api/admin/manage-app/banners`;
 const DELETE_BANNERS_BASE_URL = `${BASE_API}/api/admin/manage-app/banners`;
 
@@ -85,13 +85,13 @@ const BannerCard = ({ banner, handleDelete, isDeleting, isVerticalStyle }: any) 
   const [connectedUrl, setConnectedUrl] = useState("");
 
   return (
-    <div className="p-3  transition hover">
+    <div className="p-3 transition hover">
       {/* Image */}
       <div
         className={`relative w-full overflow-hidden rounded-lg cursor-pointer ${
           isVerticalStyle ? "h-[180px]" : "h-[120px]"
         }`}
-        onClick={() => setConnectedUrl(banner.link || banner.src)} // ✅ Click to show URL
+        onClick={() => setConnectedUrl(banner.link || banner.src)}
       >
         <img
           src={banner.src}
@@ -270,10 +270,15 @@ export default function ManageBanners() {
       </div>
     );
 
-  return (
-    <div className="bg-white rounded-2xl p-8 max-w-6xl mx-auto font-sans">
-      <h2 className="text-3xl font-bold text-gray-800 mb-8">Manage Banners</h2>
+ return (
+  <div className="bg-white rounded-2xl p-0 max-w-6xl mx-auto font-sans border border-gray-300 shadow-sm overflow-hidden">
+    {/* Title + Full-width underline */}
+    <div className="px-8 pt-6 pb-4 border-b border-gray-200">
+      <h2 className="text-3xl font-semibold text-gray-800">Manage Banners</h2>
+    </div>
 
+    {/* Content */}
+    <div className="p-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-12 items-start">
         {/* LEFT COLUMN */}
         <div className="space-y-4 p-4 border-2 border-green-400 rounded-xl shadow-sm">
@@ -321,5 +326,5 @@ export default function ManageBanners() {
         </div>
       </div>
     </div>
-  );
-}
+  </div>
+);

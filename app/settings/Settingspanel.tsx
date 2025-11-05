@@ -5,11 +5,11 @@ import Image from "next/image";
 import { Upload, Trash2 } from "lucide-react";
 
 export default function SettingsPage() {
-  const BASE_URL = "https://393rb0pp-5000.inc1.devtunnels.ms";
+  const BASE_URL = "https://viafarm-1.onrender.com";
 
   const [activeTab, setActiveTab] = useState("general");
   const [loading, setLoading] = useState(false);
-  const [profilePic, setProfilePic] = useState("/profile.jpg");
+  const [profilePic, setProfilePic] = useState("/profile.png");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState({
@@ -300,9 +300,9 @@ export default function SettingsPage() {
     );
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden">
+    <div className="flex bg-gray-100 h-screen fixed overflow-hidden">
       {/* Sidebar */}
-      <div className="w-64 bg-gray-200 p-6 flex-shrink-0">
+      <div className="w-64  bg-gray-200 border-r border-gray-300   p-6 flex-shrink h-full">
         <div className="flex flex-col gap-3">
           <button
             onClick={() => setActiveTab("general")}
@@ -327,12 +327,14 @@ export default function SettingsPage() {
         </div>
       </div>
 
+  
+
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto bg-white p-10 rounded-l-2xl shadow-md">
+      <div className="flex-1 overflow-y-scroll no-scrollbar w-[65vw]  p-10">
         {activeTab === "general" && (
-          <div className="space-y-10 pb-16">
+          <div className="space-y-6 pb-16">
             {/* Profile Info */}
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 shadow-sm">
+            <div className="bg-gray-50 border left-20 border-gray-200 rounded-xl p-8 shadow-sm">
               <h3 className="font-semibold text-gray-800 mb-5">Profile Info</h3>
               <div className="flex items-center gap-10 mb-6">
                 <Image
@@ -340,7 +342,8 @@ export default function SettingsPage() {
                   alt="Profile"
                   width={80}
                   height={80}
-                  className="rounded-full object-cover border"
+                 className="w-24 h-24 rounded-full object-cover border-2 border-gray-300 shadow-sm hover:scale-105 transition-transform duration-300"
+
                 />
                 <div className="flex gap-4">
                   <button

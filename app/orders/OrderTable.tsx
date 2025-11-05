@@ -203,7 +203,7 @@ export default function BuyerOrdersPanel() {
       {/* 🧾 Orders Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
-          <thead className="bg-gray-50 text-gray-700">
+          <thead className="bg-gray-100 text-gray-700">
             <tr>
               <th className="text-left p-3">Order Id</th>
               <th className="text-left p-3">Buyer</th>

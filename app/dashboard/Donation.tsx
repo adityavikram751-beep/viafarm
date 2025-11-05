@@ -3,7 +3,7 @@
 import { ArrowUpDown, Loader2, Info } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 
-const BASE_API_URL = "https://393rb0pp-5000.inc1.devtunnels.ms";
+const BASE_API_URL = "https://viafarm-1.onrender.com";
 const DONATION_ENDPOINT = "/api/buyer/donation";
 const ITEMS_PER_PAGE = 12;
 
