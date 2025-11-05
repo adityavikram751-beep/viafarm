@@ -33,7 +33,7 @@ export default function BuyerOrdersPanel() {
   const [filter, setFilter] = useState("All");
   const [filterOpen, setFilterOpen] = useState(false);
 
-  const baseURL ="https://viafarm-1.onrender.com;
+  const baseURL ="https://viafarm-1.onrender.com";
   const filterRef = useRef<HTMLDivElement>(null);
 
   // ✅ Close dropdown on outside click
