@@ -918,7 +918,7 @@ export default function ManageApp() {
                 </div>
               </div>
             )}
-          </div>
+          </div> 
         )}
 
         {/* TERMS card (big rounded + edit icon top-right) */}
