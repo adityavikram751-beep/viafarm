@@ -1,15 +1,25 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    // ✅ allow Cloudinary + Flaticon
-    domains: ['res.cloudinary.com', 'cdn-icons-png.flaticon.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        pathname: '**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn-icons-png.flaticon.com',
+        pathname: '**',
+      },
+    ],
   },
   eslint: {
-    ignoreDuringBuilds: true, // ✅ Ignore ESLint errors during build
+    ignoreDuringBuilds: true,
   },
   typescript: {
-    ignoreBuildErrors: true, // ✅ Ignore TypeScript errors
+    ignoreBuildErrors: true,
   },
-}
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;
