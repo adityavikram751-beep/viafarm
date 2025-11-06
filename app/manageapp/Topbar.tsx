@@ -69,6 +69,18 @@ const Topbar: React.FC = () => {
     }
   };
 
+  /* ---------------- MARK AS READ ---------------- */
+  const markAsRead = async (_id: string) => {
+    try {
+      await axios.put(`${NOTIF_API}/${_id}/read`, {}, getAuthConfig());
+      setNotifications(prev =>
+        prev.map(n => (n._id === _id ? { ...n, isRead: true } : n))
+      );
+    } catch (err) {
+      console.error("❌ Failed to mark as read:", err);
+    }
+  };
+
   /* ---------------- SOCKET HANDLING ---------------- */
   useEffect(() => {
     fetchProfile();
@@ -123,7 +135,7 @@ const Topbar: React.FC = () => {
       <audio ref={audioRef} src="/sounds/notification.mp4.wav" preload="auto" />
 
       <div className="fixed top-0 left-64 w-[calc(100%-16rem)] flex justify-between items-center px-6 py-4 bg-gray-100 border-b-2 z-50">
-        <h1 className="text-2xl font-semibold text-gray-800">ManageApp</h1>
+        <h1 className="text-2xl font-semibold text-gray-800">ManageApps</h1>
 
         <div className="flex items-center gap-5">
           <span className="text-gray-700 text-sm font-medium">{currentDate}</span>
@@ -165,12 +177,13 @@ const Topbar: React.FC = () => {
                       return (
                         <div
                           key={n._id}
-                          className={`p-3 border-b flex justify-between items-start ${
-                            isRead ? "bg-white" : "bg-blue-50/50 hover:bg-blue-100"
+                          onClick={() => markAsRead(n._id)}
+                          className={`cursor-pointer p-3 border-b flex justify-between items-start transition-all ${
+                            isRead ? "bg-white" : "bg-blue-50 hover:bg-blue-100"
                           }`}
                         >
                           <div>
-                            <p className="text-sm">{n.message || n.title || "Notification"}</p>
+                            <p className="text-sm font-medium">{n.message || n.title || "Notification"}</p>
                             <span className="text-xs text-gray-500 block">{timeText}</span>
                           </div>
                           <button

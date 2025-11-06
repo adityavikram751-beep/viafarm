@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { X, Trash2, MoreVertical } from 'lucide-react';
+import { X, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import socket from "../lib/socket";
 import { useRouter } from "next/navigation";
@@ -12,8 +12,6 @@ const BASE_URL = "https://viafarm-1.onrender.com";
 const NOTIF_API = `${BASE_URL}/api/notifications`;
 const DEL_ALL_API = `${NOTIF_API}/delete-all`;
 const PROFILE_API = `${BASE_URL}/api/admin/settings/profile`;
-const FALLBACK_TOKEN =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MDQ0ZTdiZTZmZDBmMDY3MjNkOWE4MCIsInJvbGUiOiJBZG1pbiIsImlhdCI6MTc2MTg5NjczNSwiZXhwIjoxNzYzMTkyNzM1fQ.UPk8gJUDvH70awCBMd5Yx7Fg5bDBmmruESuGERzv3pg";
 
 /* ---------------- TYPES ---------------- */
 interface Notification {
@@ -40,11 +38,7 @@ const Topbar: React.FC = () => {
   });
 
   const getAuthConfig = () => {
-    let token = FALLBACK_TOKEN;
-    if (typeof window !== "undefined") {
-      const t = localStorage.getItem("token");
-      if (t) token = t;
-    }
+    const token = localStorage.getItem("token");
     return { headers: { Authorization: `Bearer ${token}` } };
   };
 
@@ -72,6 +66,18 @@ const Topbar: React.FC = () => {
       console.error("❌ Notification fetch failed:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  /* ---------------- MARK AS READ ---------------- */
+  const markAsRead = async (_id: string) => {
+    try {
+      await axios.put(`${NOTIF_API}/${_id}/read`, {}, getAuthConfig());
+      setNotifications(prev =>
+        prev.map(n => (n._id === _id ? { ...n, isRead: true } : n))
+      );
+    } catch (err) {
+      console.error("❌ Failed to mark as read:", err);
     }
   };
 
@@ -171,12 +177,13 @@ const Topbar: React.FC = () => {
                       return (
                         <div
                           key={n._id}
-                          className={`p-3 border-b flex justify-between items-start ${
-                            isRead ? "bg-white" : "bg-blue-50/50 hover:bg-blue-100"
+                          onClick={() => markAsRead(n._id)}
+                          className={`cursor-pointer p-3 border-b flex justify-between items-start transition-all ${
+                            isRead ? "bg-white" : "bg-blue-50 hover:bg-blue-100"
                           }`}
                         >
                           <div>
-                            <p className="text-sm">{n.message || n.title || "Notification"}</p>
+                            <p className="text-sm font-medium">{n.message || n.title || "Notification"}</p>
                             <span className="text-xs text-gray-500 block">{timeText}</span>
                           </div>
                           <button

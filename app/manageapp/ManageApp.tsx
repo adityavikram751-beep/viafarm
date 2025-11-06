@@ -814,7 +814,7 @@ export default function ManageApp() {
                     </label>
                   </div>
 
-                  <div className="flex items-center justify-between py-2 border last:border-b-0">
+                  <div className="flex items-center justify-between py-2  last:border-b-0">
                     <div className="text-base font-medium text-gray-800">Order Cancelled</div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -931,7 +931,7 @@ export default function ManageApp() {
               <Edit className="text-sky-500" size={18} />
             </button>
 
-            <div className="bg-[#fafafa] rounded-xl p-8 text-gray-700 text-base leading-7 max-w-full">
+            <div className=" rounded-xl p-8 text-gray-700 text-base leading-7 max-w-full">
               {/* show numbered list if content contains newlines; keep whitespace */}
               <div className="whitespace-pre-line">
                 {termsLoading ? "Loading..." : (termsContent && termsContent.trim() ? termsContent : "No content yet. Click the edit icon to add Terms & Conditions.")}
@@ -943,12 +943,12 @@ export default function ManageApp() {
               <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
                 <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl p-6 relative">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-semibold text-gray-900">Update Privacy Policy</h3>
+                    <h3 className="text-xl font-semibold border-b- text-gray-900">Update Privacy Policy</h3>
                     <button onClick={() => setTermsEditOpen(false)} className="text-gray-500 hover:text-gray-700"><X size={24} /></button>
                   </div>
 
-                  <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-                    <textarea value={termsEditValue} onChange={(e) => setTermsEditValue(e.target.value)} rows={10} className="w-full h-48 border rounded-md p-4 text-gray-800 focus:outline-none resize-y" placeholder="Write or paste terms & conditions here..." />
+                  <div className="bg-white   rounded-lg p-6 mb-6">
+                    <textarea value={termsEditValue} onChange={(e) => setTermsEditValue(e.target.value)} rows={10} className="w-full h-48  rounded-md p-4 text-gray-800 focus:outline-none resize-y" placeholder="Write or paste terms & conditions here..." />
                   </div>
 
                   <div className="flex justify-center">

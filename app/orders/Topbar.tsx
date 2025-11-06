@@ -69,6 +69,18 @@ const Topbar: React.FC = () => {
     }
   };
 
+  /* ---------------- MARK AS READ ---------------- */
+  const markAsRead = async (_id: string) => {
+    try {
+      await axios.put(`${NOTIF_API}/${_id}/read`, {}, getAuthConfig());
+      setNotifications(prev =>
+        prev.map(n => (n._id === _id ? { ...n, isRead: true } : n))
+      );
+    } catch (err) {
+      console.error("❌ Failed to mark as read:", err);
+    }
+  };
+
   /* ---------------- SOCKET HANDLING ---------------- */
   useEffect(() => {
     fetchProfile();
@@ -165,12 +177,13 @@ const Topbar: React.FC = () => {
                       return (
                         <div
                           key={n._id}
-                          className={`p-3 border-b flex justify-between items-start ${
-                            isRead ? "bg-white" : "bg-blue-50/50 hover:bg-blue-100"
+                          onClick={() => markAsRead(n._id)}
+                          className={`cursor-pointer p-3 border-b flex justify-between items-start transition-all ${
+                            isRead ? "bg-white" : "bg-blue-50 hover:bg-blue-100"
                           }`}
                         >
                           <div>
-                            <p className="text-sm">{n.message || n.title || "Notification"}</p>
+                            <p className="text-sm font-medium">{n.message || n.title || "Notification"}</p>
                             <span className="text-xs text-gray-500 block">{timeText}</span>
                           </div>
                           <button
