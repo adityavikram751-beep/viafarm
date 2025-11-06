@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { X, Trash2, MoreVertical } from 'lucide-react';
+import { X, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import socket from "../lib/socket";
 import { useRouter } from "next/navigation";
@@ -12,8 +12,6 @@ const BASE_URL = "https://viafarm-1.onrender.com";
 const NOTIF_API = `${BASE_URL}/api/notifications`;
 const DEL_ALL_API = `${NOTIF_API}/delete-all`;
 const PROFILE_API = `${BASE_URL}/api/admin/settings/profile`;
-const FALLBACK_TOKEN =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MDQ0ZTdiZTZmZDBmMDY3MjNkOWE4MCIsInJvbGUiOiJBZG1pbiIsImlhdCI6MTc2MTg5NjczNSwiZXhwIjoxNzYzMTkyNzM1fQ.UPk8gJUDvH70awCBMd5Yx7Fg5bDBmmruESuGERzv3pg";
 
 /* ---------------- TYPES ---------------- */
 interface Notification {
@@ -40,11 +38,7 @@ const Topbar: React.FC = () => {
   });
 
   const getAuthConfig = () => {
-    let token = FALLBACK_TOKEN;
-    if (typeof window !== "undefined") {
-      const t = localStorage.getItem("token");
-      if (t) token = t;
-    }
+    const token = localStorage.getItem("token");
     return { headers: { Authorization: `Bearer ${token}` } };
   };
 
@@ -123,7 +117,7 @@ const Topbar: React.FC = () => {
   };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
- console.log("profile", profile?.profilePicture)
+
   return (
     <>
       <audio ref={audioRef} src="/sounds/notification.mp4.wav" preload="auto" />
@@ -211,7 +205,6 @@ const Topbar: React.FC = () => {
             onClick={() => router.push("/settings")}
             className="w-10 h-10 rounded-full overflow-hidden border border-gray-300 shadow-sm cursor-pointer"
           >
-           
             <Image
               src={profile?.profilePicture || "/about/about.jpg"}
               alt="Profile"
