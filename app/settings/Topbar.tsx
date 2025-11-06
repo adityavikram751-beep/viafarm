@@ -123,7 +123,7 @@ const Topbar: React.FC = () => {
   };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
-
+ console.log("profile", profile?.profilePicture)
   return (
     <>
       <audio ref={audioRef} src="/sounds/notification.mp4.wav" preload="auto" />
@@ -211,6 +211,7 @@ const Topbar: React.FC = () => {
             onClick={() => router.push("/settings")}
             className="w-10 h-10 rounded-full overflow-hidden border border-gray-300 shadow-sm cursor-pointer"
           >
+           
             <Image
               src={profile?.profilePicture || "/about/about.jpg"}
               alt="Profile"
