@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Upload, Trash2 } from "lucide-react";
+import socket from "../lib/socket";
 
 export default function SettingsPage() {
   const BASE_URL = "https://viafarm-1.onrender.com";
@@ -40,21 +41,18 @@ export default function SettingsPage() {
     }
   };
 
-  // ✅ Fetch Profile
+  // Fetch Profile
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         setLoading(true);
         const token = getToken();
-        if (!token) return alert("⚠️ Token missing!");
-
+        if (!token) return;
         const res = await fetch(`${BASE_URL}/api/admin/settings/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-
         const data = await safeJson(res);
         console.log("📥 Profile Data:", data);
-
         if (res.ok && data.success && data.data) {
           setFormData((prev) => ({
             ...prev,
@@ -62,10 +60,7 @@ export default function SettingsPage() {
             email: data.data.email || "",
             upiId: data.data.upiId || "",
           }));
-          if (data.data.profilePicture)
-            setProfilePic(data.data.profilePicture);
-        } else {
-          alert(`⚠️ Failed to fetch profile: ${data.message || "Error"}`);
+          if (data.data.profilePicture) setProfilePic(data.data.profilePicture);
         }
       } catch (error) {
         console.error("❌ Fetch profile failed:", error);
@@ -76,7 +71,7 @@ export default function SettingsPage() {
     fetchProfile();
   }, []);
 
-  // ✅ Fetch Notifications
+  // Fetch Notifications
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
@@ -94,28 +89,25 @@ export default function SettingsPage() {
     fetchNotifications();
   }, []);
 
-  // ✅ Input Change
+  // Input Change
   const handleChange = (e: any) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ✅ Upload Image
+  // Upload preview
   const handleUpload = (e: any) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadFile(file);
-
     const reader = new FileReader();
     reader.onload = (event: any) => setProfilePic(event.target.result);
     reader.readAsDataURL(file);
   };
 
-  // ✅ Delete Profile Picture
+  // Delete Profile Picture
   const handleDelete = async () => {
-    if (!confirm("🗑️ Are you sure you want to delete your profile picture?"))
-      return;
-
+    if (!confirm("🗑️ Are you sure you want to delete your profile picture?")) return;
     try {
       setLoading(true);
       const token = getToken();
@@ -123,16 +115,19 @@ export default function SettingsPage() {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-
       const data = await safeJson(res);
+      console.log("📩 Delete response:", data);
       if (res.ok && data.success) {
-        setProfilePic("/profile.jpg");
-        alert("✅ Profile picture deleted successfully!");
+        setProfilePic("/profile.png");
+        // dispatch browser event
         window.dispatchEvent(
           new CustomEvent("profile-updated", {
-            detail: { profilePicture: "/profile.jpg" },
+            detail: { profilePicture: "/profile.png" },
           })
         );
+        // emit socket if available
+        try { if (socket?.connected) socket.emit("profileUpdated", { profilePicture: "/profile.png" }); } catch {}
+        alert("✅ Profile picture deleted successfully!");
       } else {
         alert(`⚠️ Delete failed: ${data.message || "Error"}`);
       }
@@ -144,18 +139,15 @@ export default function SettingsPage() {
     }
   };
 
-  // ✅ Save Profile Info (FINAL FIXED)
+  // Save Profile Info (with upload)
   const handleSave = async () => {
     try {
       setLoading(true);
       const token = getToken();
       if (!token) return alert("⚠️ No token found!");
 
-      console.log("🔍 Sending Profile Update:", formData);
-
       let res;
       if (uploadFile) {
-        // If a file was uploaded → send as FormData
         const formDataToSend = new FormData();
         formDataToSend.append("name", formData.name);
         formDataToSend.append("email", formData.email);
@@ -168,7 +160,6 @@ export default function SettingsPage() {
           body: formDataToSend,
         });
       } else {
-        // Else send normal JSON (Base64 or default image)
         res = await fetch(`${BASE_URL}/api/admin/settings/profile`, {
           method: "PUT",
           headers: {
@@ -188,17 +179,22 @@ export default function SettingsPage() {
       console.log("📩 Response from backend:", data);
 
       if (res.ok && data.success) {
-        alert("✅ Profile updated successfully!");
+        // if server returned updated profilePicture URL, use it
+        const newPic = data.data?.profilePicture || data.profilePicture || profilePic;
+        setProfilePic(newPic);
 
+        // dispatch browser event to update Topbar etc.
         window.dispatchEvent(
           new CustomEvent("profile-updated", {
-            detail: {
-              name: formData.name,
-              email: formData.email,
-              profilePicture: profilePic,
-            },
+            detail: { profilePicture: newPic, name: formData.name, email: formData.email },
           })
         );
+        // emit socket as well (optional)
+        try { if (socket?.connected) socket.emit("profileUpdated", { profilePicture: newPic, name: formData.name }); } catch {}
+
+        alert("✅ Profile updated successfully!");
+        // clear uploadFile after success
+        setUploadFile(null);
       } else {
         alert(`❌ Update failed: ${data.message || "Unknown error"}`);
       }
@@ -210,50 +206,36 @@ export default function SettingsPage() {
     }
   };
 
-  // ✅ Change Password
+  // Change Password
   const handlePasswordUpdate = async () => {
-    if (
-      !formData.currentPassword ||
-      !formData.newPassword ||
-      !formData.confirmPassword
-    ) {
+    if (!formData.currentPassword || !formData.newPassword || !formData.confirmPassword) {
       return alert("⚠️ Please fill all password fields!");
     }
-
     if (formData.newPassword !== formData.confirmPassword) {
       return alert("❌ Passwords do not match!");
     }
-
     try {
       setLoading(true);
       const token = getToken();
       if (!token) return alert("⚠️ No token found!");
 
-      const res = await fetch(
-        `${BASE_URL}/api/admin/settings/change-password`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            currentPassword: formData.currentPassword,
-            newPassword: formData.newPassword,
-            confirmPassword: formData.confirmPassword,
-          }),
-        }
-      );
+      const res = await fetch(`${BASE_URL}/api/admin/settings/change-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          currentPassword: formData.currentPassword,
+          newPassword: formData.newPassword,
+          confirmPassword: formData.confirmPassword,
+        }),
+      });
 
       const data = await safeJson(res);
       if (res.ok && data.success) {
         alert("✅ Password updated successfully!");
-        setFormData((prev) => ({
-          ...prev,
-          currentPassword: "",
-          newPassword: "",
-          confirmPassword: "",
-        }));
+        setFormData((prev) => ({ ...prev, currentPassword: "", newPassword: "", confirmPassword: "" }));
       } else {
         alert(`⚠️ Failed to change password: ${data.message || "Error"}`);
       }
@@ -265,14 +247,10 @@ export default function SettingsPage() {
     }
   };
 
-  // ✅ Toggle Notification
+  // Toggle Notification (live event)
   const toggleNotification = async (key: string) => {
-    const updated = {
-      ...notifications,
-      [key]: !notifications[key as keyof typeof notifications],
-    };
+    const updated = { ...notifications, [key]: !notifications[key as keyof typeof notifications] };
     setNotifications(updated);
-
     try {
       const token = getToken();
       const res = await fetch(`${BASE_URL}/api/admin/settings/notifications`, {
@@ -284,7 +262,11 @@ export default function SettingsPage() {
         body: JSON.stringify(updated),
       });
       const data = await safeJson(res);
-      if (!res.ok || !data.success) {
+      if (res.ok && data.success) {
+        // dispatch browser event for Topbar
+        window.dispatchEvent(new CustomEvent("notification-updated", { detail: updated }));
+        try { if (socket?.connected) socket.emit("notificationSettingsUpdated", updated); } catch {}
+      } else {
         alert("⚠️ Failed to update notification settings!");
       }
     } catch (error) {
@@ -302,35 +284,25 @@ export default function SettingsPage() {
   return (
     <div className="flex bg-gray-100 h-screen fixed overflow-hidden">
       {/* Sidebar */}
-      <div className="w-64  bg-gray-200 border-r border-gray-300   p-6 flex-shrink h-full">
+      <div className="w-64 bg-gray-200 border-r border-gray-300 p-6 flex-shrink h-full">
         <div className="flex flex-col gap-3">
           <button
             onClick={() => setActiveTab("general")}
-            className={`py-2 px-3 text-left rounded-md transition ${
-              activeTab === "general"
-                ? "bg-white shadow font-medium"
-                : "hover:bg-gray-300"
-            }`}
+            className={`py-2 px-3 text-left rounded-md transition ${activeTab === "general" ? "bg-white shadow font-medium" : "hover:bg-gray-300"}`}
           >
             General
           </button>
           <button
             onClick={() => setActiveTab("notifications")}
-            className={`py-2 px-3 text-left rounded-md transition ${
-              activeTab === "notifications"
-                ? "bg-white shadow font-medium"
-                : "hover:bg-gray-300"
-            }`}
+            className={`py-2 px-3 text-left rounded-md transition ${activeTab === "notifications" ? "bg-white shadow font-medium" : "hover:bg-gray-300"}`}
           >
             Notifications
           </button>
         </div>
       </div>
 
-  
-
       {/* Main Content */}
-      <div className="flex-1 overflow-y-scroll no-scrollbar w-[65vw]  p-10">
+      <div className="flex-1 overflow-y-scroll no-scrollbar w-[65vw] p-10">
         {activeTab === "general" && (
           <div className="space-y-6 pb-16">
             {/* Profile Info */}
@@ -342,24 +314,15 @@ export default function SettingsPage() {
                   alt="Profile"
                   width={80}
                   height={80}
-                 className="w-24 h-24 rounded-full object-cover border-2 border-gray-300 shadow-sm hover:scale-105 transition-transform duration-300"
-
+                  className="w-24 h-24 rounded-full object-cover border-2 border-gray-300 shadow-sm hover:scale-105 transition-transform duration-300"
                 />
                 <div className="flex gap-4">
-                  <button
-                    onClick={handleDelete}
-                    className="border border-red-500 text-red-500 px-4 py-2 rounded-md flex items-center gap-2 hover:bg-red-50"
-                  >
+                  <button onClick={handleDelete} className="border border-red-500 text-red-500 px-4 py-2 rounded-md flex items-center gap-2 hover:bg-red-50">
                     <Trash2 size={16} />
                   </button>
                   <label className="border border-green-500 text-green-500 px-4 py-2 rounded-md flex items-center gap-2 hover:bg-green-50 cursor-pointer">
                     <Upload size={16} /> Upload
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleUpload}
-                      className="hidden"
-                    />
+                    <input type="file" accept="image/*" onChange={handleUpload} className="hidden" />
                   </label>
                 </div>
               </div>
@@ -367,39 +330,18 @@ export default function SettingsPage() {
               <div className="space-y-5">
                 <div>
                   <label>Email Id *</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                  />
+                  <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-2" />
                 </div>
                 <div>
                   <label>Name *</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                  />
+                  <input type="text" name="name" value={formData.name} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-2" />
                 </div>
                 <div>
                   <label>UPI Id *</label>
-                  <input
-                    type="text"
-                    name="upiId"
-                    value={formData.upiId}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                  />
+                  <input type="text" name="upiId" value={formData.upiId} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-2" />
                 </div>
                 <div className="flex justify-center mt-6">
-                  <button
-                    onClick={handleSave}
-                    className="bg-green-500 text-white rounded-lg px-10 py-2 hover:bg-green-600"
-                  >
+                  <button onClick={handleSave} className="bg-green-500 text-white rounded-lg px-10 py-2 hover:bg-green-600">
                     Save
                   </button>
                 </div>
@@ -408,45 +350,22 @@ export default function SettingsPage() {
 
             {/* Password Change */}
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 shadow-sm">
-              <h3 className="font-semibold text-gray-800 mb-5">
-                Change Password
-              </h3>
+              <h3 className="font-semibold text-gray-800 mb-5">Change Password</h3>
               <div className="space-y-5">
                 <div>
                   <label>Current Password *</label>
-                  <input
-                    type="password"
-                    name="currentPassword"
-                    value={formData.currentPassword}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                  />
+                  <input type="password" name="currentPassword" value={formData.currentPassword} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-2" />
                 </div>
                 <div>
                   <label>New Password *</label>
-                  <input
-                    type="password"
-                    name="newPassword"
-                    value={formData.newPassword}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                  />
+                  <input type="password" name="newPassword" value={formData.newPassword} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-2" />
                 </div>
                 <div>
                   <label>Confirm Password *</label>
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                  />
+                  <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-2" />
                 </div>
                 <div className="flex justify-center mt-6">
-                  <button
-                    onClick={handlePasswordUpdate}
-                    className="bg-blue-600 text-white rounded-lg px-10 py-2 hover:bg-blue-700"
-                  >
+                  <button onClick={handlePasswordUpdate} className="bg-blue-600 text-white rounded-lg px-10 py-2 hover:bg-blue-700">
                     Update Password
                   </button>
                 </div>
@@ -457,22 +376,12 @@ export default function SettingsPage() {
 
         {activeTab === "notifications" && (
           <div className="border rounded-xl p-8 bg-gray-50 shadow-sm space-y-6 pb-16">
-            <h3 className="font-semibold mb-6 text-gray-800">
-              Manage Your Notifications
-            </h3>
+            <h3 className="font-semibold mb-6 text-gray-800">Manage Your Notifications</h3>
             {Object.entries(notifications).map(([key, value]) => (
-              <div
-                key={key}
-                className="flex items-center justify-between w-full max-w-xl"
-              >
+              <div key={key} className="flex items-center justify-between w-full max-w-xl">
                 <span>{key.replace(/([A-Z])/g, " $1")}</span>
                 <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={value}
-                    onChange={() => toggleNotification(key)}
-                    className="sr-only peer"
-                  />
+                  <input type="checkbox" checked={value} onChange={() => toggleNotification(key)} className="sr-only peer" />
                   <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-green-500 transition-all"></div>
                   <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-5"></div>
                 </label>
