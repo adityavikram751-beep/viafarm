@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactStrictMode: false, // ✅ Disable double rendering (fix removeChild error)
   images: {
     remotePatterns: [
       {
