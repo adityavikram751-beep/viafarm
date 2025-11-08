@@ -20,10 +20,12 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await axios.post(`${BASE_URL}/api/auth/admin-login`, {
-        email,
-        password,
-      });
+      // ✅ Added "withCredentials" for mobile cookie & CORS support
+      const res = await axios.post(
+        `${BASE_URL}/api/auth/admin-login`,
+        { email, password },
+        { withCredentials: true }
+      );
 
       if (res.data?.success) {
         localStorage.setItem("token", res.data.token);
@@ -42,9 +44,11 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      // ✅ Same fix added here for mobile request stability
       const res = await axios.post(
         `${BASE_URL}/api/auth/request-password-reset`,
-        { email: forgotEmail }
+        { email: forgotEmail },
+        { withCredentials: true }
       );
       alert(res.data?.message || "Reset link sent successfully!");
       setForgotEmail("");
