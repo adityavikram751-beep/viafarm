@@ -20,11 +20,15 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // ✅ Added "withCredentials" for mobile cookie & CORS support
       const res = await axios.post(
         `${BASE_URL}/api/auth/admin-login`,
         { email, password },
-        { withCredentials: true }
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          withCredentials: true,
+        }
       );
 
       if (res.data?.success) {
@@ -43,18 +47,32 @@ export default function LoginPage() {
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
     try {
-      // ✅ Same fix added here for mobile request stability
       const res = await axios.post(
         `${BASE_URL}/api/auth/request-password-reset`,
         { email: forgotEmail },
-        { withCredentials: true }
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          withCredentials: false, // ✅ fix for mobile/Vercel CORS
+        }
       );
-      alert(res.data?.message || "Reset link sent successfully!");
+
+      if (res.data?.success) {
+        alert("✅ " + (res.data.message || "Reset link sent successfully!"));
+        console.log("🔗 Reset URL:", res.data.resetUrl);
+      } else {
+        alert(res.data?.message || "Error sending reset link!");
+      }
+
       setForgotEmail("");
       setIsForgotOpen(false);
     } catch (err: any) {
-      alert(err?.response?.data?.message || "Error sending reset link!");
+      console.error("Forgot error:", err?.response || err);
+      alert(err?.response?.data?.message || "Request failed. Try again!");
     } finally {
       setLoading(false);
     }
