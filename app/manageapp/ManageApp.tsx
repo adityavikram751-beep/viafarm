@@ -960,7 +960,7 @@ export default function ManageApp() {
                   </div>
 
                   <div className="bg-white   rounded-lg p-6 mb-6">
-                    <textarea value={termsEditValue} onChange={(e) => setTermsEditValue(e.target.value)} rows={10} className="w-full h-48  rounded-md p-4 text-gray-800 focus:outline-none resize-y" placeholder="Write or paste terms & conditions here..." />
+                    <textarea value={termsEditValue} onChange={(e) => setTermsEditValue(e.target.value)} rows={10} className="w-full h-48 border rounded-md p-4 text-gray-800 focus:outline-none resize-y" placeholder="Write or paste terms & conditions here..." />
                   </div>
 
                   <div className="flex justify-center">
@@ -979,11 +979,11 @@ export default function ManageApp() {
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 w-full max-w-6xl relative">
             <h3 className="text-2xl font-medium text-gray-800 mb-6">About Us</h3>
 
-            <button onClick={openAboutEditor} title="Edit about" className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-md border border-sky-200 bg-white hover:bg-sky-50">
+            <button onClick={openAboutEditor} title="Edit about" className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-md  bg-white hover:bg-sky-50">
               <Edit className="text-sky-500" size={18} />
             </button>
 
-            <div className="bg-[#fafafa] rounded-xl p-8 text-gray-700 text-base leading-7 max-w-full">
+            <div className=" rounded-xl p-8 text-gray-700 text-base leading-7 max-w-full">
               <div className="whitespace-pre-line">
                 {aboutLoading ? "Loading..." : (aboutContent && aboutContent.trim() ? aboutContent : "No content yet. Click the edit icon to add About Us content.")}
               </div>
@@ -997,7 +997,7 @@ export default function ManageApp() {
                     <button onClick={() => setAboutEditOpen(false)} className="text-gray-500 hover:text-gray-700"><X size={24} /></button>
                   </div>
 
-                  <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+                  <div className="bg-white  rounded-lg p-6 mb-6">
                     <textarea value={aboutEditValue} onChange={(e) => setAboutEditValue(e.target.value)} rows={10} className="w-full h-48 border rounded-md p-4 text-gray-800 focus:outline-none resize-y" placeholder="Write or paste About Us content here..." />
                   </div>
 
