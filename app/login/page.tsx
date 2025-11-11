@@ -9,29 +9,30 @@ const BASE_URL = "https://viafarm-1.onrender.com";
 
 export default function LoginPage() {
   const router = useRouter();
+
   const [isForgotOpen, setIsForgotOpen] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [forgotStep, setForgotStep] = useState<"email" | "otp" | "newpass">("email");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
   const [forgotEmail, setForgotEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  /* ------------ LOGIN -------------- */
+  /* ------------ LOGIN FUNCTION -------------- */
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const res = await axios.post(
         `${BASE_URL}/api/auth/admin-login`,
         { email, password },
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          withCredentials: true,
-        }
+        { headers: { "Content-Type": "application/json" }, withCredentials: true }
       );
 
-      if (res.data?.success) {
+      if (res.data?.success && res.data?.token) {
         localStorage.setItem("token", res.data.token);
         localStorage.setItem("isLoggedIn", "true");
         router.push("/dashboard");
@@ -43,36 +44,77 @@ export default function LoginPage() {
     }
   };
 
-  /* ------------ FORGOT PASSWORD -------------- */
-  const handleForgot = async (e: React.FormEvent) => {
+  /* ------------ STEP 1: REQUEST OTP -------------- */
+  const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       const res = await axios.post(
-        `${BASE_URL}/api/auth/request-password-reset`,
+        `${BASE_URL}/api/auth/request-password-otp`,
         { email: forgotEmail },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          withCredentials: false, // ✅ fix for mobile/Vercel CORS
-        }
+        { headers: { "Content-Type": "application/json" } }
       );
 
       if (res.data?.success) {
-        alert("✅ " + (res.data.message || "Reset link sent successfully!"));
-        console.log("🔗 Reset URL:", res.data.resetUrl);
+        alert("✅ " + res.data.message);
+        setForgotStep("otp");
       } else {
-        alert(res.data?.message || "Error sending reset link!");
+        alert(res.data?.message || "Failed to send OTP!");
       }
-
-      setForgotEmail("");
-      setIsForgotOpen(false);
     } catch (err: any) {
-      console.error("Forgot error:", err?.response || err);
-      alert(err?.response?.data?.message || "Request failed. Try again!");
+      alert(err?.response?.data?.message || "Error sending OTP!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* ------------ STEP 2: VERIFY OTP + RESET PASSWORD -------------- */
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await axios.post(
+        `${BASE_URL}/api/auth/reset-password-otp`,
+        { otp, password: newPassword },
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      if (res.data?.success) {
+        alert("✅ " + res.data.message);
+        setForgotStep("newpass");
+      } else {
+        alert(res.data?.message || "Invalid OTP!");
+      }
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Error verifying OTP!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* ------------ STEP 3: FINAL SET PASSWORD (Optional Confirmation) -------------- */
+  const handleSetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await axios.post(
+        `${BASE_URL}/api/auth/set-password`,
+        {},
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      if (res.data?.status === "success") {
+        alert("✅ " + res.data.message);
+        setForgotEmail("");
+        setOtp("");
+        setNewPassword("");
+        setForgotStep("email");
+        setIsForgotOpen(false);
+      } else {
+        alert(res.data?.message || "Failed to set password!");
+      }
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Error setting password!");
     } finally {
       setLoading(false);
     }
@@ -89,7 +131,7 @@ export default function LoginPage() {
         />
       </div>
 
-      {/* RIGHT SIDE LOGIN FORM */}
+      {/* RIGHT SIDE LOGIN */}
       <div className="md:w-1/2 w-full flex items-center justify-center bg-white relative h-full px-6">
         <div className="w-full max-w-md rounded-2xl bg-white z-10 h-full flex flex-col justify-center">
           <div className="flex justify-center mb-6">
@@ -155,41 +197,95 @@ export default function LoginPage() {
           ) : (
             <>
               <h2 className="text-2xl font-semibold text-gray-800 mb-2 text-center">
-                Forgot Password
+                {forgotStep === "email"
+                  ? "Forgot Password"
+                  : forgotStep === "otp"
+                  ? "Enter OTP"
+                  : "Password Reset Successful!"}
               </h2>
+
               <p className="text-sm text-gray-500 mb-6 text-center">
-                Please enter the Email address you’d like your password reset
-                information sent to
+                {forgotStep === "email"
+                  ? "Enter your email to receive an OTP"
+                  : forgotStep === "otp"
+                  ? "Enter the OTP sent to your email and set your new password"
+                  : "Your password has been updated. Please log in again."}
               </p>
 
-              <form onSubmit={handleForgot} className="space-y-5">
-                <input
-                  type="email"
-                  placeholder="Enter Email Id"
-                  value={forgotEmail}
-                  onChange={(e) => setForgotEmail(e.target.value)}
-                  required
-                  className="w-full border border-gray-300 rounded-full px-4 py-3 focus:ring-2 focus:ring-green-500 focus:outline-none"
-                />
+              {forgotStep === "email" && (
+                <form onSubmit={handleRequestOtp} className="space-y-5">
+                  <input
+                    type="email"
+                    placeholder="Enter Email Id"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    required
+                    className="w-full border border-gray-300 rounded-full px-4 py-3 focus:ring-2 focus:ring-green-500 focus:outline-none"
+                  />
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-full transition disabled:opacity-50"
-                >
-                  {loading ? "Sending..." : "Request Reset Link"}
-                </button>
-
-                <div className="text-center">
                   <button
-                    type="button"
-                    onClick={() => setIsForgotOpen(false)}
-                    className="text-sm text-green-600 hover:underline"
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-full transition disabled:opacity-50"
                   >
-                    Back To Login
+                    {loading ? "Sending..." : "Send OTP"}
                   </button>
-                </div>
-              </form>
+                </form>
+              )}
+
+              {forgotStep === "otp" && (
+                <form onSubmit={handleVerifyOtp} className="space-y-5">
+                  <input
+                    type="text"
+                    placeholder="Enter OTP"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    required
+                    className="w-full border border-gray-300 rounded-full px-4 py-3 focus:ring-2 focus:ring-green-500 focus:outline-none"
+                  />
+
+                  <input
+                    type="password"
+                    placeholder="Enter New Password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    className="w-full border border-gray-300 rounded-full px-4 py-3 focus:ring-2 focus:ring-green-500 focus:outline-none"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-full transition disabled:opacity-50"
+                  >
+                    {loading ? "Verifying..." : "Verify OTP & Reset Password"}
+                  </button>
+                </form>
+              )}
+
+              {forgotStep === "newpass" && (
+                <form onSubmit={handleSetPassword} className="space-y-5">
+                  <button
+                    type="submit"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-full transition"
+                  >
+                    Back to Login
+                  </button>
+                </form>
+              )}
+
+              {/* <div className="text-center mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotStep("email");
+                    setIsForgotOpen(false);
+                  }}
+                  className="text-sm text-green-600 hover:underline"
+                >
+                  Back to Login
+                </button>
+              </div> */}
             </>
           )}
         </div>

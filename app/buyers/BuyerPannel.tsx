@@ -63,8 +63,6 @@ interface BuyerDetail {
 }
 
 const BASE_URL = "https://viafarm-1.onrender.com";
-const TOKEN =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZTc5MjQwYzZjNzIzOGM0YTcxNWUyMiIsInJvbGUiOiJBZG1pbiIsImlhdCI6MTc2MTc5OTI5NSwiZXhwIjoxNzYzMDk1Mjk1fQ.kPQmYtbofSNLN7G0nVhqqOw4tTZWqigFd-AdPlAsFgY";
 
 export default function BuyersPanel() {
   const [buyers, setBuyers] = useState<Buyer[]>([]);
@@ -85,19 +83,31 @@ export default function BuyersPanel() {
     const fetchBuyers = async () => {
       try {
         setLoading(true);
+
+        const token =
+          localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+
+        if (!token) throw new Error("No authorization token found.");
+
         const res = await fetch(`${BASE_URL}/api/admin/buyers`, {
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${TOKEN}`,
+            Authorization: `Bearer ${token}`,
           },
         });
+
+        if (res.status === 401)
+          throw new Error("Unauthorized! Token invalid or expired.");
+
         if (!res.ok) throw new Error(`HTTP error! ${res.status}`);
+
         const data = await res.json();
         const buyersList = data.data || data;
         setBuyers(buyersList);
         setFilteredBuyers(buyersList);
-      } catch {
-        setError("Error fetching buyers");
+      } catch (err: any) {
+        console.error("❌ Error fetching buyers:", err);
+        setError(err.message || "Error fetching buyers");
       } finally {
         setLoading(false);
       }
@@ -105,25 +115,21 @@ export default function BuyersPanel() {
     fetchBuyers();
   }, []);
 
- // 🔍 Search Filter
-useEffect(() => {
-  const q = searchQuery.toLowerCase();
+  // 🔍 Search Filter
+  useEffect(() => {
+    const q = searchQuery.toLowerCase();
 
-  const result = buyers.filter((b) => {
-    const name = b.name?.toLowerCase() || "";
-    const mobile = b.mobileNumber?.toString().toLowerCase() || "";
-    const location = getLocation(b.addresses)?.toLowerCase() || "";
+    const result = buyers.filter((b) => {
+      const name = b.name?.toLowerCase() || "";
+      const mobile = b.mobileNumber?.toString().toLowerCase() || "";
+      const location = getLocation(b.addresses)?.toLowerCase() || "";
 
-    return (
-      name.includes(q) ||
-      mobile.includes(q) ||
-      location.includes(q)
-    );
-  });
+      return name.includes(q) || mobile.includes(q) || location.includes(q);
+    });
 
-  setFilteredBuyers(result);
-  setCurrentPage(1);
-}, [searchQuery, buyers]);
+    setFilteredBuyers(result);
+    setCurrentPage(1);
+  }, [searchQuery, buyers]);
 
   // 🔁 Sort by Name
   const handleSort = () => {
@@ -139,18 +145,26 @@ useEffect(() => {
   // ❌ Delete Buyer
   const handleDelete = async (buyerId: string) => {
     try {
+      const token =
+        localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+
+      if (!token) throw new Error("No authorization token found.");
+
       const res = await fetch(`${BASE_URL}/api/admin/users/${buyerId}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${TOKEN}`,
+          Authorization: `Bearer ${token}`,
         },
       });
+
       const result = await res.json();
       if (!res.ok || !result.success)
         throw new Error(result.message || "Failed to delete buyer");
+
       setBuyers((prev) => prev.filter((b) => b._id !== buyerId));
       setFilteredBuyers((prev) => prev.filter((b) => b._id !== buyerId));
+
       alert("✅ Buyer deleted successfully!");
     } catch (err: any) {
       alert(`❌ Error deleting buyer: ${err.message}`);
@@ -160,17 +174,27 @@ useEffect(() => {
   // 👁️ View Buyer Detail
   const handleView = async (buyerId: string) => {
     try {
+      const token =
+        localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+
+      if (!token) throw new Error("No authorization token found.");
+
       const res = await fetch(`${BASE_URL}/api/admin/buyer/${buyerId}`, {
-        headers: { Authorization: `Bearer ${TOKEN}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
+
       const data = await res.json();
+
       if (data.success) {
         setBuyerDetail(data.data);
         setOpenMenu(null);
         setSelectedCategory("All");
+      } else {
+        throw new Error("Failed to fetch buyer details.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error fetching buyer detail:", err);
+      alert(`❌ Error loading buyer details: ${err.message}`);
     }
   };
 
@@ -202,7 +226,6 @@ useEffect(() => {
     currentPage * rowsPerPage
   );
 
-  // 🔹 Category Filter (with plural handling)
   const filteredOrders =
     selectedCategory === "All"
       ? buyerDetail?.orders || []
@@ -249,7 +272,7 @@ useEffect(() => {
         </div>
         <button
           onClick={handleSort}
-          className="flex items-center gap-2 border border-gray-300  bg-white px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200"
+          className="flex items-center gap-2 border border-gray-300 bg-white px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200"
         >
           <ArrowUpDown className="w-4 h-4" /> Sort by
         </button>
@@ -331,153 +354,141 @@ useEffect(() => {
         </div>
       </div>
 
-   {/* 🟡 Buyer Detail Modal */}
-{buyerDetail && (
-  <div className="fixed inset-0 bg-black/40 z-50 flex justify-center items-center">
-    <div
-      ref={modalRef}
-      className="bg-white rounded-2xl shadow-2xl w-[740px] max-h-[90vh] overflow-y-auto p-6 relative"
-    >
-      <button
-        onClick={() => setBuyerDetail(null)}
-        className="absolute top-5 right-5 text-gray-500 hover:text-gray-800 transition"
-      >
-        <X className="w-6 h-6" />
-      </button>
+      {/* 🟡 Buyer Detail Modal */}
+      {buyerDetail && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex justify-center items-center">
+          <div
+            ref={modalRef}
+            className="bg-white rounded-2xl shadow-2xl w-[740px] max-h-[90vh] overflow-y-auto p-6 relative"
+          >
+            <button
+              onClick={() => setBuyerDetail(null)}
+              className="absolute top-5 right-5 text-gray-500 hover:text-gray-800 transition"
+            >
+              <X className="w-6 h-6" />
+            </button>
 
-      {/* 🧾 Header */}
-      <div className="border-b pb-3 mb-4">
-        <h2 className="text-xl font-semibold text-gray-900">
-          {buyerDetail.buyer.name}
-        </h2>
-        {/* <p className="text-sm text-gray-500">
-          Order No: {buyerDetail.orders?.[0]?.orderId || "—"}
-        </p> */}
-      </div>
+            {/* Header */}
+            <div className="border-b pb-3 mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">
+                {buyerDetail.buyer.name}
+              </h2>
+            </div>
 
-    {/* 👤 Buyer Info — Styled Like Screenshot */}
-<div className="flex items-center gap-6 mb-8  p-4 rounded-2xl">
-  {/* 🖼 Buyer Photo */}
-  <Image
-    src={
-      buyerDetail.buyer.profilePicture ||
-      "/buyer user/buyeruser.png"
-    }
-    alt={buyerDetail.buyer.name}
-    width={300}
-    height={300}
-    className="rounded-xl object-cover border "
-  />
+            {/* Buyer Info */}
+            <div className="flex items-center gap-6 mb-8 p-4 rounded-2xl">
+              <Image
+                src={
+                  buyerDetail.buyer.profilePicture ||
+                  "/buyer user/buyeruser.png"
+                }
+                alt={buyerDetail.buyer.name}
+                width={300}
+                height={300}
+                className="rounded-xl object-cover border"
+              />
 
-  {/* 📋 Buyer Details */}
-  <div className="flex flex-col justify-center">
-    <h2 className="text-xl font-semibold text-gray-900 mb-2">
-      {buyerDetail.buyer.name}
-    </h2>
+              <div className="flex flex-col justify-center">
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                  {buyerDetail.buyer.name}
+                </h2>
 
-    <p className="text-[15px] text-gray-700 mb-1">
-      <span className="font-medium text-gray-800">Location</span> –{" "}
-      {Object.values(buyerDetail.buyer.location).join(", ") || "—"}
-    </p>
+                <p className="text-[15px] text-gray-700 mb-1">
+                  <span className="font-medium text-gray-800">Location</span> –{" "}
+                  {Object.values(buyerDetail.buyer.location).join(", ") || "—"}
+                </p>
 
-    <p className="text-[15px] text-gray-700 mb-1">
-      <span className="font-medium text-gray-800">Contact No.</span> –{" "}
-      {buyerDetail.buyer.contactNo || "—"}
-    </p>
+                <p className="text-[15px] text-gray-700 mb-1">
+                  <span className="font-medium text-gray-800">Contact No.</span> –{" "}
+                  {buyerDetail.buyer.contactNo || "—"}
+                </p>
 
-    <p className="text-[15px] text-gray-700 mb-1">
-      <span className="font-medium text-gray-800">Total Orders</span> –{" "}
-      {buyerDetail.buyer.totalOrders || 0}
-    </p>
-  </div>
-</div>
+                <p className="text-[15px] text-gray-700 mb-1">
+                  <span className="font-medium text-gray-800">Total Orders</span> –{" "}
+                  {buyerDetail.buyer.totalOrders || 0}
+                </p>
+              </div>
+            </div>
 
+            {/* Orders Section */}
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-gray-800 font-semibold text-[15px]">
+                Orders ({filteredOrders.length})
+              </h3>
+              <select
+                className="border px-3 py-1 rounded-lg text-sm text-gray-700 outline-none"
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                value={selectedCategory}
+              >
+                <option value="All">All</option>
+                <option value="Fruits">Fruits</option>
+                <option value="Vegetables">Vegetables</option>
+                <option value="Plants">Plants</option>
+                <option value="Seeds">Seeds</option>
+                <option value="Handicrafts">Handicrafts</option>
+              </select>
+            </div>
 
-      {/* 🛍️ Orders Section */}
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-gray-800 font-semibold text-[15px]">
-          Orders ({filteredOrders.length})
-        </h3>
-        <select
-          className="border px-3 py-1 rounded-lg text-sm text-gray-700 outline-none"
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          value={selectedCategory}
-        >
-          <option value="All">All</option>
-          <option value="Fruits">Fruits</option>
-          <option value="Vegetables">Vegetables</option>
-          <option value="Plants">Plants</option>
-          <option value="Seeds">Seeds</option>
-          <option value="Handicrafts">Handicrafts</option>
-        </select>
-      </div>
+            {/* Orders */}
+            {filteredOrders.length === 0 ? (
+              <p className="text-gray-500 text-sm">No orders found.</p>
+            ) : (
+              <div className="space-y-4">
+                {filteredOrders.map((order) =>
+                  order.products.map((item, idx) => {
+                    const p = item?.product || {};
+                    const unit = p?.unit || "kg";
+                    const quantity = p?.quantity || 10;
 
-      {/* 📦 Orders */}
-      {filteredOrders.length === 0 ? (
-        <p className="text-gray-500 text-sm">No orders found.</p>
-      ) : (
-        <div className="space-y-4">
-          {filteredOrders.map((order) =>
-            order.products.map((item, idx) => {
-              const p = item?.product || {};
+                    const vendorName =
+                      p?.sellerName ||
+                      p?.vendorName ||
+                      item?.vendorName ||
+                      order?.vendorDetails?.name ||
+                      order?.vendor?.name ||
+                      "—";
 
-              const unit = p?.unit || "kg";
-              const quantity = p?.quantity || 10;
+                    return (
+                      <div
+                        key={p?._id || idx}
+                        className="relative flex items-center border border-yellow-300 rounded-2xl bg-white overflow-hidden shadow-sm"
+                      >
+                        <Image
+                          src={p?.images?.[0] || "/mango.jpg"}
+                          alt={p?.name || "Product"}
+                          width={160}
+                          height={120}
+                          className="object-cover h-[130px] w-[160px]"
+                        />
+                        <div className="absolute top-2 right-3 bg-white border border-gray-300 text-gray-700 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                          <span className="text-yellow-500">⭐</span>
+                          {p?.rating || "9.2"}
+                        </div>
 
-              const vendorName =
-                p?.sellerName ||
-                p?.vendorName ||
-                item?.vendorName ||
-                order?.vendorDetails?.name ||
-                order?.vendor?.name ||
-                "—";
-
-              return (
-                <div
-                  key={p?._id || idx}
-                  className="relative flex items-center border border-yellow-300 rounded-2xl bg-white overflow-hidden shadow-sm"
-                >
-                  {/* 🖼 Product Image */}
-                  <Image
-                    src={p?.images?.[0] || "/mango.jpg"}
-                    alt={p?.name || "Product"}
-                    width={160}
-                    height={120}
-                    className="object-cover h-[130px] w-[160px]"
-                  />
-
-                  {/* ⭐ Rating */}
-                  <div className="absolute top-2 right-3 bg-white border border-gray-300 text-gray-700 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
-                    <span className="text-yellow-500">⭐</span>
-                    {p?.rating || "9.2"}
-                  </div>
-
-                  {/* 📋 Product Info */}
-                  <div className="p-6 flex flex-col justify-center">
-                    <h4 className="text-lg font-semibold text-gray-800">
-                      {p?.name || "Unnamed Product"}
-                    </h4>
-                    <p className="text-gray-800 text-[15px] mt-1">
-                      by {vendorName}
-                    </p>
-                    <p className="text-gray-800 text-[14px] mt-2">
-                      Price:{" "}
-                      <span className="font-medium">
-                        ₹{p?.price || "—"}/{quantity}
-                        {unit}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-              );
-            })
-          )}
+                        <div className="p-6 flex flex-col justify-center">
+                          <h4 className="text-lg font-semibold text-gray-800">
+                            {p?.name || "Unnamed Product"}
+                          </h4>
+                          <p className="text-gray-800 text-[15px] mt-1">
+                            by {vendorName}
+                          </p>
+                          <p className="text-gray-800 text-[14px] mt-2">
+                            Price:{" "}
+                            <span className="font-medium">
+                              ₹{p?.price || "—"}/{quantity}
+                              {unit}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
-    </div>
-  </div>
-)}
-
     </div>
   );
 }

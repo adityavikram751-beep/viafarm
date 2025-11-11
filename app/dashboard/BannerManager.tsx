@@ -7,9 +7,6 @@ const BASE_API = "https://viafarm-1.onrender.com";
 const POST_BANNERS_URL = `${BASE_API}/api/admin/manage-app/banners`;
 const DELETE_BANNERS_BASE_URL = `${BASE_API}/api/admin/manage-app/banners`;
 
-const AUTH_TOKEN =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZTc5MjQwYzZjNzIzOGM0YTcxNWUyMiIsInJvbGUiOiJBZG1pbiIsImlhdCI6MTc2MTYzMTcyMywiZXhwIjoxNzYyOTI3NzIzfQ.keI3j0tGZKOEWCBE8_t2xkmdCjFto1mwUYKfYQ88kCs";
-
 const PLACEMENT_CONFIG: Record<string, string> = {
   HomePageSlider: `${BASE_API}/api/admin/public/manage-app/banners/placement/HomePageSlider`,
   SearchPageAd: `${BASE_API}/api/admin/public/manage-app/banners/placement/SearchPageAd`,
@@ -48,11 +45,17 @@ const useBannersFetcher = () => {
   const fetchAllBanners = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
+      const token =
+        localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+
+      if (!token) throw new Error("No token found. Please login again.");
+
       const all = await Promise.all(
         Object.entries(PLACEMENT_CONFIG).map(async ([placement, url]) => {
           const res = await fetch(url, {
-            headers: { Authorization: `Bearer ${AUTH_TOKEN}` },
+            headers: { Authorization: `Bearer ${token}` },
           });
           if (!res.ok) throw new Error(`${placement} fetch failed`);
           const data = await res.json();
@@ -66,7 +69,8 @@ const useBannersFetcher = () => {
         })
       );
       setBanners(all.flat());
-    } catch {
+    } catch (err) {
+      console.error("❌ Fetch Error:", err);
       setError("Failed to fetch banners");
     } finally {
       setLoading(false);
@@ -86,7 +90,6 @@ const BannerCard = ({ banner, handleDelete, isDeleting, isVerticalStyle }: any) 
 
   return (
     <div className="p-3 transition hover">
-      {/* Image */}
       <div
         className={`relative w-full overflow-hidden rounded-lg cursor-pointer ${
           isVerticalStyle ? "h-[180px]" : "h-[120px]"
@@ -152,7 +155,13 @@ const AddImagesButton = ({ placement, setBanners }: any) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsLoading(true);
+
     try {
+      const token =
+        localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+
+      if (!token) throw new Error("No token found. Please login again.");
+
       const formData = new FormData();
       formData.append("images", file);
       formData.append("title", `Banner for ${placement}`);
@@ -162,9 +171,10 @@ const AddImagesButton = ({ placement, setBanners }: any) => {
 
       const res = await fetch(POST_BANNERS_URL, {
         method: "POST",
-        headers: { Authorization: `Bearer ${AUTH_TOKEN}` },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
+
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.message);
 
@@ -181,7 +191,7 @@ const AddImagesButton = ({ placement, setBanners }: any) => {
       ]);
       alert(`✅ ${placement} banner added successfully!`);
     } catch (e) {
-      console.error("error", e);
+      console.error("❌ Error adding banner:", e);
       alert("❌ Error while adding banner");
     } finally {
       setIsLoading(false);
@@ -219,17 +229,25 @@ export default function ManageBanners() {
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("Are you sure you want to delete this banner?")) return;
+
     setDeletingId(id);
     const prev = banners;
     setBanners((b) => b.filter((x: any) => x.id !== id));
 
     try {
+      const token =
+        localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+
+      if (!token) throw new Error("No token found. Please login again.");
+
       const res = await fetch(`${DELETE_BANNERS_BASE_URL}/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${AUTH_TOKEN}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
+
       if (!res.ok) throw new Error("Server delete failed");
-    } catch {
+    } catch (err) {
+      console.error("❌ Delete failed:", err);
       alert("Delete failed. Restoring banner.");
       setBanners(prev);
     } finally {
@@ -270,61 +288,52 @@ export default function ManageBanners() {
       </div>
     );
 
- return (
-  <div className="bg-white rounded-2xl p-0 max-w-6xl mx-auto font-sans border border-gray-300 shadow-sm overflow-hidden">
-    {/* Title + Full-width underline */}
-    <div className="px-8 pt-6 pb-4 border-b border-gray-200">
-      <h2 className="text-3xl font-semibold text-gray-800">Manage Banners</h2>
-    </div>
+  return (
+    <div className="bg-white rounded-2xl p-0 max-w-6xl mx-auto font-sans border border-gray-300 shadow-sm overflow-hidden">
+      <div className="px-8 pt-6 pb-4 border-b border-gray-200">
+        <h2 className="text-3xl font-semibold text-gray-800">Manage Banners</h2>
+      </div>
 
-    {/* Content */}
-    <div className="p-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-12 items-start">
-        {/* LEFT COLUMN */}
-        <div className="space-y-4 p-4 border-2 border-green-400 rounded-xl shadow-sm">
-          {left.map((group) => (
-            <div key={group.placementKey} className="space-y-4">
-              {group.banners.map((banner) => (
-                <BannerCard
-                  key={banner.id}
-                  banner={banner}
-                  handleDelete={handleDelete}
-                  isDeleting={deletingId === banner.id}
-                  isVerticalStyle={true}
-                />
-              ))}
-              <AddImagesButton
-                placement={group.placementKey}
-                setBanners={setBanners}
-              />
-            </div>
-          ))}
-        </div>
+      <div className="p-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-12 items-start">
+          <div className="space-y-4 p-4 border-2 border-green-400 rounded-xl shadow-sm">
+            {left.map((group) => (
+              <div key={group.placementKey} className="space-y-4">
+                {group.banners.map((banner) => (
+                  <BannerCard
+                    key={banner.id}
+                    banner={banner}
+                    handleDelete={handleDelete}
+                    isDeleting={deletingId === banner.id}
+                    isVerticalStyle={true}
+                  />
+                ))}
+                <AddImagesButton placement={group.placementKey} setBanners={setBanners} />
+              </div>
+            ))}
+          </div>
 
-        {/* RIGHT COLUMN */}
-        <div className="space-y-8">
-          {right.map((group) => (
-            <div
-              key={group.placementKey}
-              className="space-y-4 p-4 border-2 border-green-400 rounded-xl shadow-sm"
-            >
-              {group.banners.map((banner) => (
-                <BannerCard
-                  key={banner.id}
-                  banner={banner}
-                  handleDelete={handleDelete}
-                  isDeleting={deletingId === banner.id}
-                  isVerticalStyle={false}
-                />
-              ))}
-              <AddImagesButton
-                placement={group.placementKey}
-                setBanners={setBanners}
-              />
-            </div>
-          ))}
+          <div className="space-y-8">
+            {right.map((group) => (
+              <div
+                key={group.placementKey}
+                className="space-y-4 p-4 border-2 border-green-400 rounded-xl shadow-sm"
+              >
+                {group.banners.map((banner) => (
+                  <BannerCard
+                    key={banner.id}
+                    banner={banner}
+                    handleDelete={handleDelete}
+                    isDeleting={deletingId === banner.id}
+                    isVerticalStyle={false}
+                  />
+                ))}
+                <AddImagesButton placement={group.placementKey} setBanners={setBanners} />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+}

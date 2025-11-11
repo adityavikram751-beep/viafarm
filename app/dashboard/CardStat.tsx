@@ -1,12 +1,9 @@
-// ✅ StatsCards.tsx — Final Perfect Layout & Styled "% change" Line
 "use client";
 
 import { useState, useEffect } from "react";
 
 // ---------------- API CONFIG ----------------
 const BASE_URL = "https://viafarm-1.onrender.com/api/admin/dashboard";
-const AUTH_TOKEN =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZTc5MjQwYzZjNzIzOGM0YTcxNWUyMiIsInJvbGUiOiJBZG1pbiIsImlhdCI6MTc2MTUzOTgxNiwiZXhwIjoxNzYyODM1ODE2fQ.vqzkxIWUxeASxojseBtnlVXG0A6NLzWase6dEoe4ZjU";
 
 // ---------------- INTERFACES ----------------
 interface DashboardCardData {
@@ -53,7 +50,6 @@ function StatCard({
     );
   }
 
-  // ✅ Prepare formatted change value
   const formattedChange = isPositive
     ? change.startsWith("+")
       ? change
@@ -62,16 +58,11 @@ function StatCard({
     ? change
     : `-${change}`;
 
-  // 🧩 Card Layout (Screenshot Style)
   return (
     <div className="bg-white rounded-2xl shadow-md p-8 text-center flex flex-col items-center justify-center">
-      {/* Main number */}
       <h3 className="text-3xl font-semibold text-gray-900">{value}</h3>
-
-      {/* Label */}
       <p className="text-2xl font-semibold text-gray-600 mt-1">{label}</p>
 
-      {/* Change line — styled like screenshot */}
       <div
         className={`flex items-center justify-center mt-4 space-x-1 ${
           isPositive ? "text-green-600" : "text-red-500"
@@ -88,9 +79,7 @@ function StatCard({
 
 // ---------------- MAIN COMPONENT ----------------
 export default function StatsCards() {
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(
-    null
-  );
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,23 +88,27 @@ export default function StatsCards() {
       setLoading(true);
       setError(null);
 
-      if (!AUTH_TOKEN) {
-        setError("Authorization Token is missing.");
-        setLoading(false);
-        return;
-      }
-
       try {
+        // ✅ Get token dynamically from local or session storage
+        const token =
+          localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+
+        if (!token) {
+          throw new Error("Authorization token not found. Please login again.");
+        }
+
         const res = await fetch(BASE_URL, {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${AUTH_TOKEN}`,
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         });
 
         if (res.status === 401) {
-          throw new Error("401 Unauthorized. The provided token is invalid or expired.");
+          throw new Error(
+            "401 Unauthorized: Token is invalid or expired. Please login again."
+          );
         }
 
         if (!res.ok) {
@@ -128,7 +121,7 @@ export default function StatsCards() {
           setDashboardData(json.data);
           console.log("✅ Dashboard data fetched successfully:", json.data);
         } else {
-          throw new Error("API reported internal failure or missing data.");
+          throw new Error("API response invalid or missing data.");
         }
       } catch (err: any) {
         console.error("❌ API Fetch Error:", err.message);

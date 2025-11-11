@@ -5,8 +5,6 @@ import { useState, useEffect } from "react";
 import { formatDistanceToNow, parseISO } from "date-fns";
 
 const BASE_URL = "https://viafarm-1.onrender.com/api/admin/recent-activity";
-const AUTH_TOKEN =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZTc5MjQwYzZjNzIzOGM0YTcxNWUyMiIsInJvbGUiOiJBZG1pbiIsImlhdCI6MTc2MTUzOTgxNiwiZXhwIjoxNzYyODM1ODE2fQ.vqzkxIWUxeASxojseBtnlVXG0A6NLzWase6dEoe4ZjU";
 
 interface ActivityItem {
   _id: string;
@@ -55,10 +53,16 @@ export default function RecentActivity() {
       setLoading(true);
       setError(null);
       try {
+        // ✅ Same logic as BuyerOrdersPanel
+        const token =
+          localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+
+        if (!token) throw new Error("No auth token found. Please login again.");
+
         const res = await fetch(BASE_URL, {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${AUTH_TOKEN}`,
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         });
@@ -75,6 +79,7 @@ export default function RecentActivity() {
         setLoading(false);
       }
     };
+
     fetchActivityData();
   }, []);
 
@@ -95,83 +100,84 @@ export default function RecentActivity() {
     </div>
   );
 
- return (
-  <div className="bg-white rounded-2xl p-0 max-w-6xl mx-auto font-sans border border-gray-300 shadow-sm overflow-hidden">
-    {/* Title + Full-width underline */}
-    <div className="px-6 pt-6 pb-4 border-b border-gray-200">
-      <h2 className="text-2xl font-semibold text-gray-800">Recent Activity</h2>
-    </div>
+  return (
+    <div className="bg-white rounded-2xl p-0 max-w-6xl mx-auto font-sans border border-gray-300 shadow-sm overflow-hidden">
+      {/* Title + Full-width underline */}
+      <div className="px-6 pt-6 pb-4 border-b border-gray-200">
+        <h2 className="text-2xl font-semibold text-gray-800">Recent Activity</h2>
+      </div>
 
-    {/* Main Content */}
-    <div className="p-6">
-      {error && (
-        <div className="p-3 text-red-700 bg-red-100 rounded-lg border-l-4 border-red-500 font-medium">
-          Error loading: {error}
-        </div>
-      )}
-
-      <div className="space-y-4">
-        {loading ? (
-          <>
-            <ActivitySkeleton />
-            <ActivitySkeleton />
-            <ActivitySkeleton />
-          </>
-        ) : currentActivities.length === 0 ? (
-          <div className="p-4 text-gray-500 text-center">
-            No recent activity found.
+      {/* Main Content */}
+      <div className="p-6">
+        {error && (
+          <div className="p-3 text-red-700 bg-red-100 rounded-lg border-l-4 border-red-500 font-medium">
+            Error loading: {error}
           </div>
-        ) : (
-          currentActivities.map((activity) => (
-            <div
-              key={activity._id}
-              className="flex items-center justify-between bg-gray-50 rounded-2xl px-4 py-3 shadow-sm transition hover:shadow-md"
-            >
-              <div className="flex items-center gap-3">
-                <img
-                  src={activity.profilePicture || DEFAULT_AVATAR}
-                  alt={activity.name}
-                  className="w-12 h-12 rounded-full object-cover"
-                />
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">
-                    New Buyer Registration
-                  </p>
-                  <p className="text-xs text-gray-500">{activity.name}</p>
-                </div>
-              </div>
-              <span className="text-xs text-gray-400 whitespace-nowrap">
-                {formatTime(activity.createdAt)}
-              </span>
-            </div>
-          ))
         )}
-      </div>
 
-      {/* Pagination */}
-      <div className="flex justify-between items-center mt-6 text-sm text-gray-500">
-        <p>
-          {currentActivities.length > 0
-            ? `Page ${currentPage} of ${totalPages}`
-            : "No pages"}
-        </p>
-        <div className="flex gap-3">
-          <button
-            onClick={handlePrev}
-            disabled={currentPage === 1 || loading}
-            className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded-full hover:bg-gray-100 disabled:opacity-50"
-          >
-            {"<"}
-          </button>
-          <button
-            onClick={handleNext}
-            disabled={currentPage === totalPages || loading}
-            className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded-full hover:bg-gray-100 disabled:opacity-50"
-          >
-            {">"}
-          </button>
+        <div className="space-y-4">
+          {loading ? (
+            <>
+              <ActivitySkeleton />
+              <ActivitySkeleton />
+              <ActivitySkeleton />
+            </>
+          ) : currentActivities.length === 0 ? (
+            <div className="p-4 text-gray-500 text-center">
+              No recent activity found.
+            </div>
+          ) : (
+            currentActivities.map((activity) => (
+              <div
+                key={activity._id}
+                className="flex items-center justify-between bg-gray-50 rounded-2xl px-4 py-3 shadow-sm transition hover:shadow-md"
+              >
+                <div className="flex items-center gap-3">
+                  <img
+                    src={activity.profilePicture || DEFAULT_AVATAR}
+                    alt={activity.name}
+                    className="w-12 h-12 rounded-full object-cover"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">
+                      New Buyer Registration
+                    </p>
+                    <p className="text-xs text-gray-500">{activity.name}</p>
+                  </div>
+                </div>
+                <span className="text-xs text-gray-400 whitespace-nowrap">
+                  {formatTime(activity.createdAt)}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Pagination */}
+        <div className="flex justify-between items-center mt-6 text-sm text-gray-500">
+          <p>
+            {currentActivities.length > 0
+              ? `Page ${currentPage} of ${totalPages}`
+              : "No pages"}
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={handlePrev}
+              disabled={currentPage === 1 || loading}
+              className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded-full hover:bg-gray-100 disabled:opacity-50"
+            >
+              {"<"}
+            </button>
+            <button
+              onClick={handleNext}
+              disabled={currentPage === totalPages || loading}
+              className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded-full hover:bg-gray-100 disabled:opacity-50"
+            >
+              {">"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+}

@@ -35,10 +35,6 @@ const TERMS_BASE = `${BASE_API}/api/admin/manage-app/term-and-condition`;
 /* About Us endpoint (GET + PUT) */
 const ABOUT_BASE = `${BASE_API}/api/admin/manage-app/About-us`;
 
-/* fallback token you provided; localStorage token takes priority */
-const FALLBACK_TOKEN =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZTc5MjQwYzZjNzIzOGM0YTcxNWUyMiIsInJvbGUiOiJBZG1pbiIsImlhdCI6MTc2MTcxNDU2MSwiZXhwIjoxNzYzMDEwNTYxfQ.bQ8GhEoP1TZujKucFTkt4ghCweeu3M-uCAuCA-Arb1A";
-
 /* ---------------- TYPES ---------------- */
 interface CategoryImage {
   url?: string;
@@ -155,12 +151,28 @@ export default function ManageApp() {
   const [aboutSaving, setAboutSaving] = useState(false);
 
   /* helper auth headers */
-  const getAuthConfig = () => {
-    let token = FALLBACK_TOKEN;
-    if (typeof window !== "undefined") {
-      const t = localStorage.getItem("token");
-      if (t) token = t;
+  const extractToken = (raw: string | null) => {
+    if (!raw) return "";
+    // sometimes token might be stored as JSON like '{"token":"..."}'
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && parsed.token) return String(parsed.token);
+    } catch {
+      // not JSON, continue
     }
+    return raw;
+  };
+
+  const getAuthConfig = () => {
+    let token = "";
+    if (typeof window !== "undefined") {
+      const ls = localStorage.getItem("token");
+      const ss = sessionStorage.getItem("token");
+      token = extractToken(ls) || extractToken(ss) || "";
+    }
+    // If token is empty, return an empty config (no Authorization header).
+    // This avoids ReferenceError and allows the app to decide how to behave when unauthenticated.
+    if (!token) return {};
     return { headers: { Authorization: `Bearer ${token}` } };
   };
 
