@@ -41,11 +41,12 @@ interface Category {
   createdAt?: string;
   updatedAt?: string;
 }
+
 type ApiCoupon = {
   _id: string;
   code: string;
   discount: { value: number; type?: string } | number;
-  appliesTo?: string[];
+  appliesTo?: string[]; // e.g. ["All Products"]
   createdBy?: any;
   startDate?: string;
   expiryDate?: string;
@@ -56,6 +57,7 @@ type ApiCoupon = {
 
 /* ---------------- COMPONENT ---------------- */
 export default function ManageApp() {
+  // tabs - keep explicit ids to match earlier usage
   const tabs: { id: string; label: string }[] = [
     { id: "products", label: "Products" },
     { id: "coupons", label: "Coupons" },
@@ -64,10 +66,9 @@ export default function ManageApp() {
     { id: "terms", label: "Terms & Conditions" },
     { id: "about", label: "About Us" },
   ];
-
   const [activeTab, setActiveTab] = useState<string>("products");
 
-  /* ---------------- STATES ---------------- */
+  /* Categories */
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -78,11 +79,15 @@ export default function ManageApp() {
   const [addBlocks, setAddBlocks] = useState<AddBlock[]>([emptyBlock()]);
 
   /* Edit modal - single */
-const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editFile, setEditFile] = useState<File | null>(null);
   const [editPreview, setEditPreview] = useState<string | null>(null);
+  const [formTotalUsage, setFormTotalUsage] = useState(""); // Kept for coupon creation
+
+  /* Modal visibility */
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   /* Coupons */
   const [couponsRaw, setCouponsRaw] = useState<ApiCoupon[]>([]);
@@ -98,7 +103,7 @@ const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [openDeleteCode, setOpenDeleteCode] = useState<string | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
 
-  /* Notifications */
+  /* ---------------- NOTIFICATIONS ---------------- */
   const [notifSettings, setNotifSettings] = useState({
     orderPlaced: false,
     orderCancelled: false,
@@ -106,6 +111,8 @@ const [showCategoryModal, setShowCategoryModal] = useState(false);
     priceDrop: false,
   });
   const [notifLoading, setNotifLoading] = useState(false);
+
+  /* form to send notification */
   const [notifTitle, setNotifTitle] = useState("");
   const [notifMessage, setNotifMessage] = useState("");
   const [notifImageFile, setNotifImageFile] = useState<File | null>(null);
@@ -122,7 +129,6 @@ const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [formStartDate, setFormStartDate] = useState("");
   const [formExpiryDate, setFormExpiryDate] = useState("");
   const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
-  const [formTotalUsage, setFormTotalUsage] = useState("");
   const [creatingCoupon, setCreatingCoupon] = useState(false);
 
   /* ---------------- TERMS & ABOUT ---------------- */
@@ -369,12 +375,65 @@ const [showCategoryModal, setShowCategoryModal] = useState(false);
     }
   };
 
+  /* ---------------- CUSTOMER SUPPORT HANDLERS ---------------- */
+  const fetchSupport = async () => {
+    try {
+      setLoadingSupport(true);
+      const res = await axios.get(SUPPORT_BASE, getAuthConfig());
+      const data = res.data?.data ?? null;
+      setSupportData(data);
+    } catch (err) {
+      console.error("fetchSupport", err);
+    } finally {
+      setLoadingSupport(false);
+    }
+  };
+
+  const handleSupportEdit = (field: string, currentValue: string) => {
+    setSupportEditField(field);
+    setSupportTempValue(currentValue || "");
+  };
+
+  const handleSupportSave = async () => {
+    if (!supportEditField) return;
+    try {
+      const payload = { ...supportData, [supportEditField]: supportTempValue };
+      const res = await axios.put(SUPPORT_BASE, payload, getAuthConfig());
+      const updated = res.data?.data ?? payload;
+      setSupportData(updated);
+      setSupportEditField(null);
+      setSupportTempValue("");
+      alert("Customer support updated.");
+    } catch (err) {
+      console.error("handleSupportSave", err);
+      alert("Failed to update customer support.");
+    }
+  };
+
+  const handleSupportDelete = async (field: string) => {
+    if (!confirm(`Are you sure you want to clear ${field}?`)) return;
+    try {
+      const payload = { ...supportData, [field]: "" };
+      const res = await axios.put(SUPPORT_BASE, payload, getAuthConfig());
+      setSupportData(res.data?.data ?? payload);
+      alert("Field cleared.");
+    } catch (err) {
+      console.error("handleSupportDelete", err);
+      alert("Failed to clear field.");
+    }
+  };
+
+  const handleSupportCancel = () => {
+    setSupportEditField(null);
+    setSupportTempValue("");
+  };
+
   /* ---------------- useEffect to load per-tab ---------------- */
   useEffect(() => {
     if (activeTab === "products") fetchCategories();
     if (activeTab === "coupons") fetchCoupons();
     if (activeTab === "notifications") fetchNotifSettings();
-if (activeTab === "customersupport") fetchSupportHandler();
+    if (activeTab === "customersupport") fetchSupport();
     if (activeTab === "terms") fetchTerms();
     if (activeTab === "about") fetchAbout();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -560,7 +619,7 @@ if (activeTab === "customersupport") fetchSupportHandler();
       setCreatingCoupon(false);
     }
   };
-  const openDeleteModal = (id: string, code: string) => { setOpenDeleteId(id); setOpenDeleteCode(code); setDeleteReason(""); };
+   const openDeleteModal = (id: string, code: string) => { setOpenDeleteId(id); setOpenDeleteCode(code); setDeleteReason(""); };
   const closeDeleteModal = () => { setOpenDeleteId(null); setOpenDeleteCode(null); setDeleteReason(""); };
   const confirmDeleteCoupon = async () => {
     if (!openDeleteId) return;
@@ -579,58 +638,6 @@ if (activeTab === "customersupport") fetchSupportHandler();
     setCouponFilter(filterKey);
     setCurrentPage(1);
     setShowFilterDropdown(false);
-  };
-
-  /* ---------------- CUSTOMER SUPPORT HANDLERS ---------------- */
-  const fetchSupportHandler = async () => {
-    try {
-      setLoadingSupport(true);
-      const res = await axios.get(SUPPORT_BASE, getAuthConfig());
-      const data = res.data?.data ?? null;
-      setSupportData(data);
-    } catch (err) {
-      console.error("fetchSupport", err);
-    } finally {
-      setLoadingSupport(false);
-    }
-  };
-
-  const handleSupportEdit = (field: string, value: string) => {
-    setSupportEditField(field);
-    setSupportTempValue(value ?? "");
-  };
-
-  const handleSupportCancel = () => {
-    setSupportEditField(null);
-    setSupportTempValue("");
-  };
-
-  const handleSupportSave = async () => {
-    if (!supportEditField) return;
-    try {
-      const payload = { ...supportData, [supportEditField]: supportTempValue };
-      const res = await axios.put(SUPPORT_BASE, payload, getAuthConfig());
-      const updated = res.data?.data ?? payload;
-      setSupportData(updated);
-      setSupportEditField(null);
-      setSupportTempValue("");
-      alert("Customer support updated.");
-    } catch (err) {
-      console.error("handleSupportSave", err);
-      alert("Failed to update customer support.");
-    }
-  };
-
-  const handleSupportDelete = async (field: string) => {
-    try {
-      const payload = { ...supportData, [field]: "" };
-      const res = await axios.put(SUPPORT_BASE, payload, getAuthConfig());
-      setSupportData(res.data?.data ?? payload);
-      alert("Field cleared.");
-    } catch (err) {
-      console.error("handleSupportDelete", err);
-      alert("Failed to clear field.");
-    }
   };
 
   /* ---------------- RENDER ---------------- */
@@ -668,7 +675,7 @@ if (activeTab === "customersupport") fetchSupportHandler();
                   <div className="flex items-center gap-3">
                     <span className="text-gray-800 text-sm">{idx + 1}. {cat.name}</span>
                   </div>
-                  <div className="flex gap-3/items-center">
+                  <div className="flex gap-3 items-center">
                     <button
                       onClick={() => handleDeleteCategory(cat._id, cat.name)}
                       className="flex items-center justify-center w-9 h-9 rounded-md border border-red-200 bg-white hover:bg-red-50"
@@ -761,7 +768,7 @@ if (activeTab === "customersupport") fetchSupportHandler();
                     currentCoupons.map((c) => (
                       <tr key={c._id} className="border-t hover:bg-gray-50">
                         <td className="py-3 px-4">{c.code}</td>
-                        <td className="py-3 px-4">{c.discountValue}{c.discountType ? ` (${c.discountType})` : (typeof c.discountValue === "number" ? "%" : "")}</td>
+                        <td className="py-3 px-4">{c.discountValue}{c.discountType ? ` ({c.discountType})` : (typeof c.discountValue === "number" ? "%" : "")}</td>
                         <td className="py-3 px-4">{c.appliesTo}</td>
                         <td className="py-3 px-4">{c.createdByLabel}</td>
                         <td className="py-3 px-4">{c.validityLabel}</td>
@@ -793,7 +800,7 @@ if (activeTab === "customersupport") fetchSupportHandler();
           </div>
         )}
 
-        {/* ---------------- NOTIFICATIONS TAB ---------------- */}
+        {/* ---------------- NOTIFICATIONS TAB (MODIFIED LAYOUT) ---------------- */}
         {activeTab === "notifications" && (
           <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 w-full max-w-6xl">
             <h2 className="text-gray-800 text-xl font-semibold mb-6">Manage User Notifications</h2>

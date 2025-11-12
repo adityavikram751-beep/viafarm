@@ -1,22 +1,22 @@
-// utils/auth.ts
+
 import Cookies from "js-cookie";
 
-const AUTH_KEY = "via-farm-auth"; // localStorage key
-const COOKIE_KEY = "viafarm_token"; // cookie key
+const AUTH_KEY = "via-farm-auth"; 
+const COOKIE_KEY = "viafarm_token";
 
-/* 🔒 Save token to localStorage + secure cookie (works on Vercel too) */
+
 export function setToken(token: string): void {
   try {
     if (typeof window !== "undefined") {
-      // Save in localStorage (for client use)
+      
       localStorage.setItem(AUTH_KEY, JSON.stringify({ token }));
 
-      // Save in cookie (for refresh & SSR compatibility)
+     
       Cookies.set(COOKIE_KEY, token, {
-        expires: 7,          // valid for 7 days
-        path: "/",           // accessible site-wide
-        secure: true,        // ✅ required for Vercel (HTTPS)
-        sameSite: "strict",  // prevents external site access
+        expires: 7,          
+        path: "/",           
+        secure: true,        
+        sameSite: "strict",  
       });
     }
   } catch (error) {
@@ -24,7 +24,7 @@ export function setToken(token: string): void {
   }
 }
 
-/* 🔓 Get token (prefer cookie first, fallback to localStorage) */
+
 export function getToken(): string | null {
   try {
     if (typeof window !== "undefined") {
@@ -43,7 +43,7 @@ export function getToken(): string | null {
   }
 }
 
-/* 🧹 Clear token from both localStorage & cookie (logout) */
+
 export function clearToken(): void {
   try {
     if (typeof window !== "undefined") {
@@ -55,7 +55,7 @@ export function clearToken(): void {
   }
 }
 
-/* ⚙️ Return Axios Auth Config */
+
 export function getAuthConfig() {
   const token = getToken();
   return {
