@@ -45,7 +45,7 @@ interface Category {
 type ApiCoupon = {
   _id: string;
   code: string;
-  discount: { value: number; type?: string } | number;
+  discount: { value: number; type?: string } | number | string;
   appliesTo?: string[]; // e.g. ["All Products"]
   createdBy?: any;
   startDate?: string;
@@ -548,11 +548,53 @@ export default function ManageApp() {
     }
   };
 
-  // Coupon Handlers
+  // ---------- SMART DISCOUNT NORMALIZER ----------
+  const normalizeDiscount = (discount: any) => {
+    // Return object { value: number, type: "Percentage"|"Fixed" }
+    try {
+      if (discount === null || discount === undefined) return { value: 0, type: "Percentage" };
+      if (typeof discount === "number") return { value: discount, type: "Percentage" };
+      if (typeof discount === "string") {
+        // "15" or "15%" or "15 ₹" etc.
+        const raw = discount.trim();
+        const num = parseFloat(raw.replace(/[^\d.-]/g, ""));
+        if (!isNaN(num)) {
+          if (raw.includes("%")) return { value: num, type: "Percentage" };
+          if (raw.includes("₹") || raw.toLowerCase().includes("rs") || raw.toLowerCase().includes("inr")) return { value: num, type: "Fixed" };
+          // default -> percentage
+          return { value: num, type: "Percentage" };
+        }
+        return { value: 0, type: "Percentage" };
+      }
+      if (typeof discount === "object") {
+        const value = Number(discount.value ?? discount.val ?? 0) || 0;
+        let type = (discount.type ?? discount.unit ?? "Percentage").toString();
+        type = type.trim();
+        const tl = type.toLowerCase();
+        if (["%", "percent", "percentage"].includes(tl)) type = "Percentage";
+        else if (["₹", "rs", "inr", "fixed", "amount"].includes(tl)) type = "Fixed";
+        else if (tl === "") type = "Percentage";
+        else {
+          // try to map words like "Percentage" or "Fixed"
+          if (tl.includes("%")) type = "Percentage";
+          else if (tl.includes("fixed") || tl.includes("rupee") || tl.includes("₹")) type = "Fixed";
+          else type = type[0].toUpperCase() + type.slice(1);
+        }
+        return { value, type };
+      }
+    } catch (err) {
+      // fallback
+      return { value: 0, type: "Percentage" };
+    }
+    return { value: 0, type: "Percentage" };
+  };
+
+  // Coupon Handlers - mapToRow uses normalizeDiscount
   const mapToRow = (c: ApiCoupon) => {
-    const d = (c.discount ?? { value: 0 }) as any;
-    const discountValue = typeof d === "number" ? d : d.value ?? 0;
-    const discountType = typeof d === "number" ? undefined : d.type;
+    const d = normalizeDiscount(c.discount);
+    const discountValue = Number(d.value) || 0;
+    const discountType = d.type ?? "Percentage";
+
     const expiryISO = c.expiryDate ?? c.updatedAt ?? c.createdAt ?? "";
     const validityLabel = expiryISO ? new Date(expiryISO).toLocaleDateString() : "-";
     const appliesTo = Array.isArray(c.appliesTo) ? c.appliesTo.join(", ") : (c.appliesTo as any) ?? "All Products";
@@ -562,7 +604,7 @@ export default function ManageApp() {
       if (!expiryISO) status = "Active";
       else status = new Date(expiryISO) > new Date() ? "Active" : "Expired";
     }
-    return { _id: c._id, code: c.code, discountValue: Number(discountValue), discountType, appliesTo, createdByLabel, validityLabel, expiryISO, status };
+    return { _id: c._id, code: c.code, discountValue, discountType, appliesTo, createdByLabel, validityLabel, expiryISO, status };
   };
   const couponRows = couponsRaw.map(mapToRow);
   const filtered = couponRows.filter((r) => {
@@ -590,17 +632,19 @@ export default function ManageApp() {
   const closeAddCoupon = () => setShowAddCoupon(false);
   const handleCreateCoupon = async () => {
     if (!formCode.trim()) return alert("Coupon Code required");
-    if (!formDiscount) return alert("Discount required");
+    if (!formDiscount && formDiscount !== 0) return alert("Discount required");
     if (!formExpiryDate) return alert("Expiry Date required");
     try {
       setCreatingCoupon(true);
+      // normalize outgoing payload type to { value, type }
+      const discountPayload = { value: Number(formDiscount), type: formDiscountType };
       const payload = {
         code: formCode.trim(),
-        discount: { value: Number(formDiscount), type: formDiscountType, },
+        discount: discountPayload,
         minimumOrder: formMinOrder ? Number(formMinOrder) : 0,
         usageLimitPerUser: formUsageLimit ? Number(formUsageLimit) : 1,
         totalUsageLimit: formTotalUsage ? Number(formTotalUsage) : 50,
-        startDate: new Date(formStartDate).toISOString(),
+        startDate: formStartDate ? new Date(formStartDate).toISOString() : new Date().toISOString(),
         expiryDate: new Date(formExpiryDate).toISOString(),
         appliesTo: formAppliesTo?.length ? formAppliesTo : ["All Products"],
         applicableProducts: [],
@@ -768,7 +812,7 @@ export default function ManageApp() {
                     currentCoupons.map((c) => (
                       <tr key={c._id} className="border-t hover:bg-gray-50">
                         <td className="py-3 px-4">{c.code}</td>
-                        <td className="py-3 px-4">{c.discountValue}{c.discountType ? ` ({c.discountType})` : (typeof c.discountValue === "number" ? "%" : "")}</td>
+                        <td className="py-3 px-4">{c.discountValue} {c.discountType ? `(${c.discountType})` : ""}</td>
                         <td className="py-3 px-4">{c.appliesTo}</td>
                         <td className="py-3 px-4">{c.createdByLabel}</td>
                         <td className="py-3 px-4">{c.validityLabel}</td>
