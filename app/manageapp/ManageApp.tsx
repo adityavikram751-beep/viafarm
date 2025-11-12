@@ -15,7 +15,6 @@ import {
   Phone,
   Mail,
   Clock,
-  Save,
 } from "lucide-react";
 
 /* ---------------- CONFIG ---------------- */
@@ -23,16 +22,11 @@ const BASE_API = "https://viafarm-1.onrender.com";
 const CATEGORIES_BASE = `${BASE_API}/api/admin/manage-app/categories`;
 const COUPONS_BASE = `${BASE_API}/api/admin/manage-app/coupons`;
 const SUPPORT_BASE = `${BASE_API}/api/admin/manage-app/customer-support`;
-
-/* Notifications endpoints (GET, PUT settings + POST send) */
 const NOTIF_GET = `${BASE_API}/api/admin/settings/user-notifications`;
 const NOTIF_PUT = `${BASE_API}/api/admin/settings/user-notifications`;
 const NOTIF_POST = `${BASE_API}/api/admin/manage-app/notifications`;
-
-/* Terms & Conditions endpoints */
-const TERMS_BASE = `${BASE_API}/api/admin/manage-app/term-and-condition`;
-
-/* About Us endpoint (GET + PUT) */
+const TERMS_BASE_BUYER = `${BASE_API}/api/admin/manage-app/term-and-condition`;
+const TERMS_BASE_VENDOR = `${BASE_API}/api/admin/manage-app/privacy-policy`;
 const ABOUT_BASE = `${BASE_API}/api/admin/manage-app/About-us`;
 
 /* ---------------- TYPES ---------------- */
@@ -47,12 +41,11 @@ interface Category {
   createdAt?: string;
   updatedAt?: string;
 }
-
 type ApiCoupon = {
   _id: string;
   code: string;
   discount: { value: number; type?: string } | number;
-  appliesTo?: string[]; // e.g. ["All Products"]
+  appliesTo?: string[];
   createdBy?: any;
   startDate?: string;
   expiryDate?: string;
@@ -63,7 +56,6 @@ type ApiCoupon = {
 
 /* ---------------- COMPONENT ---------------- */
 export default function ManageApp() {
-  // tabs - keep explicit ids to match earlier usage
   const tabs: { id: string; label: string }[] = [
     { id: "products", label: "Products" },
     { id: "coupons", label: "Coupons" },
@@ -72,9 +64,10 @@ export default function ManageApp() {
     { id: "terms", label: "Terms & Conditions" },
     { id: "about", label: "About Us" },
   ];
+
   const [activeTab, setActiveTab] = useState<string>("products");
 
-  /* Categories */
+  /* ---------------- STATES ---------------- */
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -85,15 +78,11 @@ export default function ManageApp() {
   const [addBlocks, setAddBlocks] = useState<AddBlock[]>([emptyBlock()]);
 
   /* Edit modal - single */
-  const [isEditMode, setIsEditMode] = useState(false);
+const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editFile, setEditFile] = useState<File | null>(null);
   const [editPreview, setEditPreview] = useState<string | null>(null);
-  const [formTotalUsage, setFormTotalUsage] = useState(""); // Kept for coupon creation
-
-  /* Modal visibility */
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   /* Coupons */
   const [couponsRaw, setCouponsRaw] = useState<ApiCoupon[]>([]);
@@ -109,7 +98,7 @@ export default function ManageApp() {
   const [openDeleteCode, setOpenDeleteCode] = useState<string | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
 
-  /* ---------------- NOTIFICATIONS ---------------- */
+  /* Notifications */
   const [notifSettings, setNotifSettings] = useState({
     orderPlaced: false,
     orderCancelled: false,
@@ -117,8 +106,6 @@ export default function ManageApp() {
     priceDrop: false,
   });
   const [notifLoading, setNotifLoading] = useState(false);
-
-  /* form to send notification */
   const [notifTitle, setNotifTitle] = useState("");
   const [notifMessage, setNotifMessage] = useState("");
   const [notifImageFile, setNotifImageFile] = useState<File | null>(null);
@@ -135,9 +122,11 @@ export default function ManageApp() {
   const [formStartDate, setFormStartDate] = useState("");
   const [formExpiryDate, setFormExpiryDate] = useState("");
   const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
+  const [formTotalUsage, setFormTotalUsage] = useState("");
   const [creatingCoupon, setCreatingCoupon] = useState(false);
 
   /* ---------------- TERMS & ABOUT ---------------- */
+  const [termsType, setTermsType] = useState<"buyer" | "vendor">("buyer");
   const [termsContent, setTermsContent] = useState<string>("");
   const [termsLoading, setTermsLoading] = useState(false);
   const [termsEditOpen, setTermsEditOpen] = useState(false);
@@ -149,6 +138,12 @@ export default function ManageApp() {
   const [aboutEditOpen, setAboutEditOpen] = useState(false);
   const [aboutEditValue, setAboutEditValue] = useState<string>("");
   const [aboutSaving, setAboutSaving] = useState(false);
+
+  /* ---------------- CUSTOMER SUPPORT (NEW) ---------------- */
+  const [supportData, setSupportData] = useState<{ phone?: string; email?: string; operatingHours?: string } | null>(null);
+  const [loadingSupport, setLoadingSupport] = useState(false);
+  const [supportEditField, setSupportEditField] = useState<string | null>(null);
+  const [supportTempValue, setSupportTempValue] = useState<string>("");
 
   /* helper auth headers */
   const extractToken = (raw: string | null) => {
@@ -171,66 +166,8 @@ export default function ManageApp() {
       token = extractToken(ls) || extractToken(ss) || "";
     }
     // If token is empty, return an empty config (no Authorization header).
-    // This avoids ReferenceError and allows the app to decide how to behave when unauthenticated.
     if (!token) return {};
     return { headers: { Authorization: `Bearer ${token}` } };
-  };
-
-  /* ---------------- CUSTOMER SUPPORT (NEW) ---------------- */
-  const [supportData, setSupportData] = useState<{ phone?: string; email?: string; operatingHours?: string } | null>(null);
-  const [loadingSupport, setLoadingSupport] = useState(false);
-  const [supportEditField, setSupportEditField] = useState<string | null>(null);
-  const [supportTempValue, setSupportTempValue] = useState<string>("");
-
-  const fetchSupport = async () => {
-    try {
-      setLoadingSupport(true);
-      const res = await axios.get(SUPPORT_BASE, getAuthConfig());
-      const data = res.data?.data ?? null;
-      setSupportData(data);
-    } catch (err) {
-      console.error("fetchSupport", err);
-    } finally {
-      setLoadingSupport(false);
-    }
-  };
-
-  const handleSupportEdit = (field: string, value: string) => {
-    setSupportEditField(field);
-    setSupportTempValue(value ?? "");
-  };
-
-  const handleSupportCancel = () => {
-    setSupportEditField(null);
-    setSupportTempValue("");
-  };
-
-  const handleSupportSave = async () => {
-    if (!supportEditField) return;
-    try {
-      const payload = { ...supportData, [supportEditField]: supportTempValue };
-      const res = await axios.put(SUPPORT_BASE, payload, getAuthConfig());
-      const updated = res.data?.data ?? payload;
-      setSupportData(updated);
-      setSupportEditField(null);
-      setSupportTempValue("");
-      alert("Customer support updated.");
-    } catch (err) {
-      console.error("handleSupportSave", err);
-      alert("Failed to update customer support.");
-    }
-  };
-
-  const handleSupportDelete = async (field: string) => {
-    try {
-      const payload = { ...supportData, [field]: "" };
-      const res = await axios.put(SUPPORT_BASE, payload, getAuthConfig());
-      setSupportData(res.data?.data ?? payload);
-      alert("Field cleared.");
-    } catch (err) {
-      console.error("handleSupportDelete", err);
-      alert("Failed to clear field.");
-    }
   };
 
   /* ---------------- FETCH & API LOGIC (existing) ---------------- */
@@ -345,11 +282,12 @@ export default function ManageApp() {
     }
   };
 
-  /* ---------------- Terms & About API ---------------- */
+  /* ---------------- Terms & About API (Buyer/Vendor) ---------------- */
   const fetchTerms = async () => {
     try {
       setTermsLoading(true);
-      const res = await axios.get(TERMS_BASE, getAuthConfig());
+      const endpoint = termsType === "buyer" ? TERMS_BASE_BUYER : TERMS_BASE_VENDOR;
+      const res = await axios.get(endpoint, getAuthConfig());
       const data = res.data?.data ?? {};
       setTermsContent(data.content ?? "");
     } catch (err) {
@@ -368,13 +306,14 @@ export default function ManageApp() {
   const saveTerms = async () => {
     try {
       setTermsSaving(true);
+      const endpoint = termsType === "buyer" ? TERMS_BASE_BUYER : TERMS_BASE_VENDOR;
       const payload = { content: termsEditValue ?? "" };
-      const res = await axios.put(TERMS_BASE, payload, getAuthConfig());
+      const res = await axios.put(endpoint, payload, getAuthConfig());
       if (res.data?.success) {
         const updated = res.data?.data ?? {};
         setTermsContent(updated.content ?? termsEditValue);
         setTermsEditOpen(false);
-        alert("Terms & Conditions updated successfully.");
+        alert(`${termsType === "buyer" ? "Terms & Conditions" : "Privacy Policy"} updated successfully.`);
       } else {
         setTermsContent(termsEditValue);
         setTermsEditOpen(false);
@@ -393,7 +332,6 @@ export default function ManageApp() {
       setAboutLoading(true);
       const res = await axios.get(ABOUT_BASE, getAuthConfig());
       const data = res.data?.data ?? res.data ?? {};
-      // backend might return object with content
       setAboutContent(data.content ?? data?.content ?? "");
     } catch (err) {
       console.error("fetchAbout", err);
@@ -436,11 +374,11 @@ export default function ManageApp() {
     if (activeTab === "products") fetchCategories();
     if (activeTab === "coupons") fetchCoupons();
     if (activeTab === "notifications") fetchNotifSettings();
-    if (activeTab === "customersupport") fetchSupport();
+if (activeTab === "customersupport") fetchSupportHandler();
     if (activeTab === "terms") fetchTerms();
     if (activeTab === "about") fetchAbout();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activeTab, termsType]);
 
   /* ---------------- MODAL / UI HANDLERS (kept for completeness) ---------------- */
 
@@ -622,7 +560,7 @@ export default function ManageApp() {
       setCreatingCoupon(false);
     }
   };
-   const openDeleteModal = (id: string, code: string) => { setOpenDeleteId(id); setOpenDeleteCode(code); setDeleteReason(""); };
+  const openDeleteModal = (id: string, code: string) => { setOpenDeleteId(id); setOpenDeleteCode(code); setDeleteReason(""); };
   const closeDeleteModal = () => { setOpenDeleteId(null); setOpenDeleteCode(null); setDeleteReason(""); };
   const confirmDeleteCoupon = async () => {
     if (!openDeleteId) return;
@@ -641,6 +579,58 @@ export default function ManageApp() {
     setCouponFilter(filterKey);
     setCurrentPage(1);
     setShowFilterDropdown(false);
+  };
+
+  /* ---------------- CUSTOMER SUPPORT HANDLERS ---------------- */
+  const fetchSupportHandler = async () => {
+    try {
+      setLoadingSupport(true);
+      const res = await axios.get(SUPPORT_BASE, getAuthConfig());
+      const data = res.data?.data ?? null;
+      setSupportData(data);
+    } catch (err) {
+      console.error("fetchSupport", err);
+    } finally {
+      setLoadingSupport(false);
+    }
+  };
+
+  const handleSupportEdit = (field: string, value: string) => {
+    setSupportEditField(field);
+    setSupportTempValue(value ?? "");
+  };
+
+  const handleSupportCancel = () => {
+    setSupportEditField(null);
+    setSupportTempValue("");
+  };
+
+  const handleSupportSave = async () => {
+    if (!supportEditField) return;
+    try {
+      const payload = { ...supportData, [supportEditField]: supportTempValue };
+      const res = await axios.put(SUPPORT_BASE, payload, getAuthConfig());
+      const updated = res.data?.data ?? payload;
+      setSupportData(updated);
+      setSupportEditField(null);
+      setSupportTempValue("");
+      alert("Customer support updated.");
+    } catch (err) {
+      console.error("handleSupportSave", err);
+      alert("Failed to update customer support.");
+    }
+  };
+
+  const handleSupportDelete = async (field: string) => {
+    try {
+      const payload = { ...supportData, [field]: "" };
+      const res = await axios.put(SUPPORT_BASE, payload, getAuthConfig());
+      setSupportData(res.data?.data ?? payload);
+      alert("Field cleared.");
+    } catch (err) {
+      console.error("handleSupportDelete", err);
+      alert("Failed to clear field.");
+    }
   };
 
   /* ---------------- RENDER ---------------- */
@@ -678,7 +668,7 @@ export default function ManageApp() {
                   <div className="flex items-center gap-3">
                     <span className="text-gray-800 text-sm">{idx + 1}. {cat.name}</span>
                   </div>
-                  <div className="flex gap-3 items-center">
+                  <div className="flex gap-3/items-center">
                     <button
                       onClick={() => handleDeleteCategory(cat._id, cat.name)}
                       className="flex items-center justify-center w-9 h-9 rounded-md border border-red-200 bg-white hover:bg-red-50"
@@ -803,7 +793,7 @@ export default function ManageApp() {
           </div>
         )}
 
-        {/* ---------------- NOTIFICATIONS TAB (MODIFIED LAYOUT) ---------------- */}
+        {/* ---------------- NOTIFICATIONS TAB ---------------- */}
         {activeTab === "notifications" && (
           <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 w-full max-w-6xl">
             <h2 className="text-gray-800 text-xl font-semibold mb-6">Manage User Notifications</h2>
@@ -938,6 +928,30 @@ export default function ManageApp() {
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 w-full max-w-6xl relative">
             <h3 className="text-2xl font-medium text-gray-800 mb-6">Terms & Conditions</h3>
 
+            {/* Tabs (Buyer / Vendor) */}
+            <div className="flex gap-8 mb-6 border-b border-gray-200 pb-3">
+              <button
+                onClick={() => setTermsType("buyer")}
+                className={`text-base font-medium pb-1 ${
+                  termsType === "buyer"
+                    ? "text-green-600 border-b-2 border-green-600"
+                    : "text-gray-600 hover:text-gray-800"
+                }`}
+              >
+                Buyer
+              </button>
+              <button
+                onClick={() => setTermsType("vendor")}
+                className={`text-base font-medium pb-1 ${
+                  termsType === "vendor"
+                    ? "text-green-600 border-b-2 border-green-600"
+                    : "text-gray-600 hover:text-gray-800"
+                }`}
+              >
+                Vendor
+              </button>
+            </div>
+
             {/* edit pen */}
             <button onClick={openTermsEditor} title="Edit terms" className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-md  bg-white hover:bg-sky-50">
               <Edit className="text-sky-500" size={18} />
@@ -955,7 +969,7 @@ export default function ManageApp() {
               <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
                 <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl p-6 relative">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-semibold border-b- text-gray-900">Update Privacy Policy</h3>
+                    <h3 className="text-xl font-semibold border-b- text-gray-900">Update {termsType === "buyer" ? "Terms & Conditions (Buyer)" : "Privacy Policy (Vendor)"}</h3>
                     <button onClick={() => setTermsEditOpen(false)} className="text-gray-500 hover:text-gray-700"><X size={24} /></button>
                   </div>
 
