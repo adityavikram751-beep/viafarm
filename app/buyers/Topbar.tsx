@@ -153,7 +153,7 @@ const Topbar: React.FC = () => {
       <audio ref={audioRef} src="/sounds/notification.mp4.wav" preload="auto" />
 
       <div className="fixed top-0 left-64 w-[calc(100%-16rem)] flex justify-between items-center px-6 py-4 bg-gray-100 border-b-2 z-50">
-        <h1 className="text-2xl font-semibold text-gray-800">buyers</h1>
+        <h1 className="text-2xl font-semibold text-gray-800">Buyers</h1>
 
         <div className="flex items-center gap-5">
           <span className="text-gray-700 text-sm font-medium">{currentDate}</span>
