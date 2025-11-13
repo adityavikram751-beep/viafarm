@@ -1,3 +1,4 @@
+"use client"
 import React from "react";
 import Topbar from "../buyers/Topbar";
 import BuyersPanel from "../buyers/BuyerPannel";
