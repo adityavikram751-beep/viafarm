@@ -17,7 +17,7 @@ export function setToken(token: string): void {
         path: "/",           
         secure: true,        
         sameSite: "strict",  
-      });
+      }); 
     }
   } catch (error) {
     console.error("Error saving token:", error);
