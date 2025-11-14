@@ -1,7 +1,8 @@
+export const dynamic = "force-dynamic";
+
 import "../globals.css"
 import type { Metadata } from "next"
 import { Sidebar } from "../login/sidebar"
-
 
 export const metadata: Metadata = {
   title: "Via-Farm Admin Dashboard",
@@ -15,19 +16,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <body className="flex flex-col md:flex-row bg-gray-100 min-h-screen">
+        {/* Fixed Sidebar */}
+        <aside className="fixed left-0 top-0 h-screen w-64 overflow-y-auto">
+          <Sidebar />
+        </aside>
 
-      <body className="flex bg-gray-100">
-        <div className="flex min-h-screen">
-          {/* Fixed Sidebar */}
-          <aside className="fixed left-0 top-0 h-screen w-64 overflow-y-auto">
-            <Sidebar />
-          </aside>
-
-          {/* Main Content with left margin to account for fixed sidebar */}
-          <main className="flex-1 ml-50 p-8">
-            {children}
-          </main>
-        </div>
+        {/* Main Content */}
+        <main className="flex-1 ml-56 p-8">
+          {children}
+        </main>
       </body>
     </html>
   )
