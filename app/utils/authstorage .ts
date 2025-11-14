@@ -1,26 +1,24 @@
- const AUTH_KEY = "viafarm_admin_token";
+import Cookies from "js-cookie";
+
+const COOKIE_KEY = "viafarm_admin_token";
 
 /* SAVE TOKEN */
 export function setToken(token: string) {
-  if (typeof window !== "undefined") {
-    // Save plain string
-    localStorage.setItem(AUTH_KEY, token);
-  }
+  Cookies.set(COOKIE_KEY, token, {
+    expires: 7,          // token 7 days tak rahega
+    secure: true,        // https required (vercel)
+    sameSite: "strict",  // csrf safe
+  });
 }
 
 /* GET TOKEN */
 export function getToken(): string | null {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem(AUTH_KEY);
-  }
-  return null;
+  return Cookies.get(COOKIE_KEY) || null;
 }
 
 /* CLEAR TOKEN */
 export function clearToken() {
-  if (typeof window !== "undefined") {
-    localStorage.removeItem(AUTH_KEY);
-  }
+  Cookies.remove(COOKIE_KEY);
 }
 
 /* AUTH HEADER FOR AXIOS */
