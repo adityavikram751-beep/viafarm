@@ -27,7 +27,7 @@ const Topbar: React.FC = () => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<>(null);
   const router = useRouter();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 

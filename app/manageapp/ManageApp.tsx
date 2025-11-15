@@ -176,22 +176,35 @@ export default function ManageApp() {
     return { headers: { Authorization: `Bearer ${token}` } };
   };
 
-  /* ---------------- FETCH & API LOGIC (existing) ---------------- */
+  /* ---------------- FETCH & API LOGIC (UPDATED FOR NEW API) ---------------- */
+
+  // Normalize an API category item into Category
+  const normalizeCategoryItem = (c: any): Category => {
+    let img: CategoryImage | null = null;
+    if (c.image) {
+      if (typeof c.image === "string") img = { url: c.image };
+      else if (typeof c.image === "object") img = { url: c.image.url ?? (c.image.secure_url ?? undefined), public_id: c.image.public_id };
+    }
+    return {
+      _id: c._id ?? c.id ?? String(Math.random()),
+      name: c.name ?? "Unnamed",
+      image: img,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+    };
+  };
+
   const fetchCategories = async () => {
     try {
       setLoading(true);
       const res = await axios.get(CATEGORIES_BASE, getAuthConfig());
-      const data = Array.isArray(res.data) ? res.data : res.data?.data ?? res.data;
-      const normalized: Category[] = (data || []).map((c: any) => ({
-        _id: c._id ?? c.id ?? Math.random().toString(),
-        name: c.name ?? "Unnamed",
-        image: c.image ?? null,
-        createdAt: c.createdAt,
-        updatedAt: c.updatedAt,
-      }));
+      // NEW API returns { success: true, categories: [...] }
+      const data = Array.isArray(res.data?.categories) ? res.data.categories : res.data?.data ?? [];
+      const normalized: Category[] = (data || []).map((c: any) => normalizeCategoryItem(c));
       setCategories(normalized);
     } catch (err) {
       console.error("fetchCategories", err);
+      // keep previous categories if fail
     } finally {
       setLoading(false);
     }
@@ -201,7 +214,7 @@ export default function ManageApp() {
     try {
       setCouponLoading(true);
       const res = await axios.get(COUPONS_BASE, getAuthConfig());
-      const data = Array.isArray(res.data) ? res.data : res.data?.data ?? res.data;
+      const data = Array.isArray(res.data) ? res.data : res.data?.data ?? res.data?.coupons ?? [];
       setCouponsRaw(data || []);
       setCurrentPage(1);
     } catch (err) {
@@ -245,7 +258,8 @@ export default function ManageApp() {
         orderPickedUpDelivered: updated.orderPickedUpDelivered,
         priceDrop: updated.priceDrop,
       };
-      const res = await axios.put(NOTIF_PUT, payload, getAuthConfig());
+      const conf = getAuthConfig();
+      const res = await axios.put(NOTIF_PUT, payload, conf);
       if (res.data?.success && res.data.data) {
         setNotifSettings({
           orderPlaced: !!res.data.data.orderPlaced,
@@ -256,6 +270,7 @@ export default function ManageApp() {
       }
     } catch (err) {
       console.error("updateNotifSetting", err);
+      // revert local toggle on error
       setNotifSettings((s) => ({ ...s, [key]: !updated[key] }));
       alert("Failed to update notification setting.");
     }
@@ -270,9 +285,11 @@ export default function ManageApp() {
       form.append("message", notifMessage.trim());
       if (notifImageFile) form.append("image", notifImageFile);
 
+      const conf = getAuthConfig();
+      // ensure correct multipart header merging
       await axios.post(NOTIF_POST, form, {
-        ...getAuthConfig(),
-        headers: { ...getAuthConfig().headers, "Content-Type": "multipart/form-data" },
+        ...conf,
+        headers: { ...(conf.headers ?? {}), "Content-Type": "multipart/form-data" },
       });
 
       alert("Notification sent.");
@@ -294,7 +311,7 @@ export default function ManageApp() {
       setTermsLoading(true);
       const endpoint = termsType === "buyer" ? TERMS_BASE_BUYER : TERMS_BASE_VENDOR;
       const res = await axios.get(endpoint, getAuthConfig());
-      const data = res.data?.data ?? {};
+      const data = res.data?.data ?? res.data ?? {};
       setTermsContent(data.content ?? "");
     } catch (err) {
       console.error("fetchTerms", err);
@@ -439,7 +456,7 @@ export default function ManageApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, termsType]);
 
-  /* ---------------- MODAL / UI HANDLERS (kept for completeness) ---------------- */
+  /* ---------------- MODAL / UI HANDLERS ---------------- */
 
   // Category Handlers
   const addNewBlock = () => setAddBlocks((s) => [...s, emptyBlock()]);
@@ -483,6 +500,8 @@ export default function ManageApp() {
     setEditFile(f);
     setEditPreview(f ? URL.createObjectURL(f) : null);
   };
+
+  // Save multiple categories (POST)
   const handleSaveAdds = async () => {
     const nonEmpty = addBlocks.filter((b) => b.name.trim() !== "" || b.file);
     if (nonEmpty.length === 0) return alert("Please add at least one category (name or image).");
@@ -491,17 +510,25 @@ export default function ManageApp() {
     }
     try {
       setSaving(true);
-      await Promise.all(
-        nonEmpty.map(async (b) => {
-          const form = new FormData();
-          form.append("name", b.name.trim());
-          if (b.file) form.append("image", b.file);
-          await axios.post(CATEGORIES_BASE, form, {
-            ...getAuthConfig(),
-            headers: { ...getAuthConfig().headers, "Content-Type": "multipart/form-data" },
-          });
-        })
-      );
+      const conf = getAuthConfig();
+      // send them sequentially to avoid multipart concurrency issues on some servers
+      const created: Category[] = [];
+      for (const b of nonEmpty) {
+        const form = new FormData();
+        form.append("name", b.name.trim());
+        if (b.file) form.append("image", b.file);
+        const res = await axios.post(CATEGORIES_BASE, form, {
+          ...conf,
+          headers: { ...(conf.headers ?? {}), "Content-Type": "multipart/form-data" },
+        });
+        // server returns { success: true, data: { ... } }
+        const item = res.data?.data ?? res.data ?? {};
+        // normalize to Category
+        created.push(normalizeCategoryItem(item));
+      }
+
+      // merge created to local state (optimistic)
+      setCategories((prev) => [...created, ...prev]);
       alert("Categories added successfully.");
       setAddBlocks([emptyBlock()]);
       fetchCategories();
@@ -512,6 +539,7 @@ export default function ManageApp() {
       setSaving(false);
     }
   };
+
   const handleSaveEdit = async () => {
     if (!editId) return;
     if (!editName.trim()) return alert("Please enter category name.");
@@ -520,13 +548,24 @@ export default function ManageApp() {
       const form = new FormData();
       form.append("name", editName.trim());
       if (editFile) form.append("image", editFile);
-      await axios.put(`${CATEGORIES_BASE}/${editId}`, form, {
-        ...getAuthConfig(),
-        headers: { ...getAuthConfig().headers, "Content-Type": "multipart/form-data" },
+
+      const conf = getAuthConfig();
+      const res = await axios.put(`${CATEGORIES_BASE}/${editId}`, form, {
+        ...conf,
+        headers: { ...(conf.headers ?? {}), "Content-Type": "multipart/form-data" },
       });
+
+      // optionally use response to update local state
+      if (res.data?.success && res.data.data) {
+        const updated = normalizeCategoryItem(res.data.data);
+        setCategories((prev) => prev.map((p) => (p._id === updated._id ? updated : p)));
+      } else {
+        // fallback - refresh whole list
+        fetchCategories();
+      }
+
       alert("Category updated.");
       closeCategoryModal();
-      fetchCategories();
     } catch (err) {
       console.error("save edit error", err);
       alert("Failed to update category.");
@@ -534,10 +573,11 @@ export default function ManageApp() {
       setSaving(false);
     }
   };
+
   const handleDeleteCategory = async (id: string, name: string) => {
     if (!confirm(`Delete category "${name}"? This cannot be undone.`)) return;
     try {
-      setCategories((prev) => prev.filter((c) => c._id !== id));
+      setCategories((prev) => prev.filter((c) => c._id !== id)); // optimistic
       await axios.delete(`${CATEGORIES_BASE}/${id}`, getAuthConfig());
       alert("Category deleted successfully.");
       fetchCategories();
@@ -649,9 +689,10 @@ export default function ManageApp() {
         appliesTo: formAppliesTo?.length ? formAppliesTo : ["All Products"],
         applicableProducts: [],
       };
+      const conf = getAuthConfig();
       await axios.post(COUPONS_BASE, payload, {
-        ...getAuthConfig(),
-        headers: { ...getAuthConfig().headers, "Content-Type": "application/json" },
+        ...conf,
+        headers: { ...(conf.headers ?? {}), "Content-Type": "application/json" },
       });
       alert("Coupon created successfully.");
       closeAddCoupon();
@@ -663,7 +704,7 @@ export default function ManageApp() {
       setCreatingCoupon(false);
     }
   };
-   const openDeleteModal = (id: string, code: string) => { setOpenDeleteId(id); setOpenDeleteCode(code); setDeleteReason(""); };
+  const openDeleteModal = (id: string, code: string) => { setOpenDeleteId(id); setOpenDeleteCode(code); setDeleteReason(""); };
   const closeDeleteModal = () => { setOpenDeleteId(null); setOpenDeleteCode(null); setDeleteReason(""); };
   const confirmDeleteCoupon = async () => {
     if (!openDeleteId) return;
@@ -971,7 +1012,7 @@ export default function ManageApp() {
                 </div>
               </div>
             )}
-          </div> 
+          </div>
         )}
 
         {/* TERMS card (big rounded + edit icon top-right) */}
