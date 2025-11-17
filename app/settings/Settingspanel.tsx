@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Upload, Trash2 } from "lucide-react";
+import { Upload, Trash2, Eye, EyeOff } from "lucide-react";
 import socket from "../lib/socket";
 
 export default function SettingsPage() {
@@ -20,6 +20,13 @@ export default function SettingsPage() {
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
+  });
+
+  // visibility state for each password input
+  const [passwordVisible, setPasswordVisible] = useState({
+    currentPassword: false,
+    newPassword: false,
+    confirmPassword: false,
   });
 
   const [notifications, setNotifications] = useState({
@@ -100,18 +107,19 @@ export default function SettingsPage() {
   }, []);
 
   /* ---------------------- INPUT CHANGE ---------------------- */
-  const handleChange = (e: any) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   /* ---------------------- UPLOAD PREVIEW ---------------------- */
-  const handleUpload = (e: any) => {
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadFile(file);
     const reader = new FileReader();
-    reader.onload = (event: any) => setProfilePic(event.target.result);
+    reader.onload = (event: ProgressEvent<FileReader>) =>
+      setProfilePic(event.target?.result as string);
     reader.readAsDataURL(file);
   };
 
@@ -309,6 +317,11 @@ export default function SettingsPage() {
     }
   };
 
+  /* ---------------------- TOGGLE VISIBILITY ---------------------- */
+  const togglePasswordVisibility = (field: keyof typeof passwordVisible) => {
+    setPasswordVisible((prev) => ({ ...prev, [field]: !prev[field] }));
+  };
+
   /* ---------------------- LOADING SCREEN ---------------------- */
   if (loading)
     return (
@@ -438,35 +451,83 @@ export default function SettingsPage() {
               <div className="space-y-5">
                 <div>
                   <label>Current Password *</label>
-                  <input
-                    type="password"
-                    name="currentPassword"
-                    value={formData.currentPassword}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                  />
+                  <div className="relative">
+                    <input
+                      type={passwordVisible.currentPassword ? "text" : "password"}
+                      name="currentPassword"
+                      value={formData.currentPassword}
+                      onChange={handleChange}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => togglePasswordVisibility("currentPassword")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
+                      aria-label={
+                        passwordVisible.currentPassword ? "Hide password" : "Show password"
+                      }
+                    >
+                      {passwordVisible.currentPassword ? (
+                        <EyeOff size={18} />
+                      ) : (
+                        <Eye size={18} />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <label>New Password *</label>
-                  <input
-                    type="password"
-                    name="newPassword"
-                    value={formData.newPassword}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                  />
+                  <div className="relative">
+                    <input
+                      type={passwordVisible.newPassword ? "text" : "password"}
+                      name="newPassword"
+                      value={formData.newPassword}
+                      onChange={handleChange}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => togglePasswordVisibility("newPassword")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
+                      aria-label={
+                        passwordVisible.newPassword ? "Hide password" : "Show password"
+                      }
+                    >
+                      {passwordVisible.newPassword ? (
+                        <EyeOff size={18} />
+                      ) : (
+                        <Eye size={18} />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <label>Confirm Password *</label>
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                  />
+                  <div className="relative">
+                    <input
+                      type={passwordVisible.confirmPassword ? "text" : "password"}
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => togglePasswordVisibility("confirmPassword")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
+                      aria-label={
+                        passwordVisible.confirmPassword ? "Hide password" : "Show password"
+                      }
+                    >
+                      {passwordVisible.confirmPassword ? (
+                        <EyeOff size={18} />
+                      ) : (
+                        <Eye size={18} />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex justify-center mt-6">

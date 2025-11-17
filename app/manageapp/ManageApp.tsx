@@ -29,6 +29,9 @@ const TERMS_BASE_BUYER = `${BASE_API}/api/admin/manage-app/term-and-condition`;
 const TERMS_BASE_VENDOR = `${BASE_API}/api/admin/manage-app/privacy-policy`;
 const ABOUT_BASE = `${BASE_API}/api/admin/manage-app/About-us`;
 
+/* ---------------- VARIETIES ENDPOINT ---------------- */
+const VARIETIES_BASE = `${BASE_API}/api/admin/variety`;
+
 /* ---------------- TYPES ---------------- */
 interface CategoryImage {
   url?: string;
@@ -41,12 +44,11 @@ interface Category {
   createdAt?: string;
   updatedAt?: string;
 }
-
 type ApiCoupon = {
   _id: string;
   code: string;
   discount: { value: number; type?: string } | number | string;
-  appliesTo?: string[]; // e.g. ["All Products"]
+  appliesTo?: string[];
   createdBy?: any;
   startDate?: string;
   expiryDate?: string;
@@ -54,10 +56,15 @@ type ApiCoupon = {
   createdAt?: string;
   updatedAt?: string;
 };
+type Variety = {
+  _id: string;
+  name: string;
+  categoryId: string;
+  categoryName?: string;
+};
 
 /* ---------------- COMPONENT ---------------- */
 export default function ManageApp() {
-  // tabs - keep explicit ids to match earlier usage
   const tabs: { id: string; label: string }[] = [
     { id: "products", label: "Products" },
     { id: "coupons", label: "Coupons" },
@@ -68,7 +75,10 @@ export default function ManageApp() {
   ];
   const [activeTab, setActiveTab] = useState<string>("products");
 
-  /* Categories */
+  const productInnerTabs = [{ id: "categories", label: "Product Categories" }, { id: "varieties", label: "Product Varieties" }];
+  const [productInnerActive, setProductInnerActive] = useState<"categories" | "varieties">("categories");
+
+  /* CATEGORIES */
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -84,12 +94,27 @@ export default function ManageApp() {
   const [editName, setEditName] = useState("");
   const [editFile, setEditFile] = useState<File | null>(null);
   const [editPreview, setEditPreview] = useState<string | null>(null);
-  const [formTotalUsage, setFormTotalUsage] = useState(""); // Kept for coupon creation
 
-  /* Modal visibility */
   const [showCategoryModal, setShowCategoryModal] = useState(false);
 
-  /* Coupons */
+  /* VARIETIES */
+  const [varieties, setVarieties] = useState<Variety[]>([]);
+  const [varLoading, setVarLoading] = useState(false);
+  const [varSearch, setVarSearch] = useState("");
+  const [showVarModal, setShowVarModal] = useState(false);
+  const [varModalCategoryId, setVarModalCategoryId] = useState<string | null>(null);
+  const [varModalCategoryName, setVarModalCategoryName] = useState<string | null>(null);
+  const [varModalName, setVarModalName] = useState("");
+  const [isVarEdit, setIsVarEdit] = useState(false);
+  const [editingVarId, setEditingVarId] = useState<string | null>(null);
+
+  // NEW: pending list inside modal (so Add pushes locally before hitting Save)
+  const [varModalPending, setVarModalPending] = useState<Variety[]>([]);
+
+  /* separate search for categories */
+  const [categorySearch, setCategorySearch] = useState("");
+
+  /* COUPONS */
   const [couponsRaw, setCouponsRaw] = useState<ApiCoupon[]>([]);
   const [couponLoading, setCouponLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -97,13 +122,11 @@ export default function ManageApp() {
   const couponsPerPage = 12;
   const [currentPage, setCurrentPage] = useState(1);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-
-  /* Delete coupon modal states */
   const [openDeleteId, setOpenDeleteId] = useState<string | null>(null);
   const [openDeleteCode, setOpenDeleteCode] = useState<string | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
 
-  /* ---------------- NOTIFICATIONS ---------------- */
+  /* NOTIFICATIONS */
   const [notifSettings, setNotifSettings] = useState({
     orderPlaced: false,
     orderCancelled: false,
@@ -111,15 +134,13 @@ export default function ManageApp() {
     priceDrop: false,
   });
   const [notifLoading, setNotifLoading] = useState(false);
-
-  /* form to send notification */
   const [notifTitle, setNotifTitle] = useState("");
   const [notifMessage, setNotifMessage] = useState("");
   const [notifImageFile, setNotifImageFile] = useState<File | null>(null);
   const [notifImagePreview, setNotifImagePreview] = useState<string | null>(null);
   const [sendingNotif, setSendingNotif] = useState(false);
 
-  /* create coupon modal handlers */
+  /* COUPON FORM */
   const [showAddCoupon, setShowAddCoupon] = useState(false);
   const [formCode, setFormCode] = useState("");
   const [formDiscount, setFormDiscount] = useState<number | "">("");
@@ -130,8 +151,9 @@ export default function ManageApp() {
   const [formExpiryDate, setFormExpiryDate] = useState("");
   const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
   const [creatingCoupon, setCreatingCoupon] = useState(false);
+  const [formTotalUsage, setFormTotalUsage] = useState("");
 
-  /* ---------------- TERMS & ABOUT ---------------- */
+  /* TERMS & ABOUT */
   const [termsType, setTermsType] = useState<"buyer" | "vendor">("buyer");
   const [termsContent, setTermsContent] = useState<string>("");
   const [termsLoading, setTermsLoading] = useState(false);
@@ -145,25 +167,21 @@ export default function ManageApp() {
   const [aboutEditValue, setAboutEditValue] = useState<string>("");
   const [aboutSaving, setAboutSaving] = useState(false);
 
-  /* ---------------- CUSTOMER SUPPORT (NEW) ---------------- */
+  /* CUSTOMER SUPPORT */
   const [supportData, setSupportData] = useState<{ phone?: string; email?: string; operatingHours?: string } | null>(null);
   const [loadingSupport, setLoadingSupport] = useState(false);
   const [supportEditField, setSupportEditField] = useState<string | null>(null);
   const [supportTempValue, setSupportTempValue] = useState<string>("");
 
-  /* helper auth headers */
+  /* helper auth */
   const extractToken = (raw: string | null) => {
     if (!raw) return "";
-    // sometimes token might be stored as JSON like '{"token":"..."}'
     try {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === "object" && parsed.token) return String(parsed.token);
-    } catch {
-      // not JSON, continue
-    }
-    return raw;
+    } catch {}
+    return raw ?? "";
   };
-
   const getAuthConfig = () => {
     let token = "";
     if (typeof window !== "undefined") {
@@ -171,14 +189,11 @@ export default function ManageApp() {
       const ss = sessionStorage.getItem("token");
       token = extractToken(ls) || extractToken(ss) || "";
     }
-    // If token is empty, return an empty config (no Authorization header).
     if (!token) return {};
     return { headers: { Authorization: `Bearer ${token}` } };
   };
 
-  /* ---------------- FETCH & API LOGIC (UPDATED FOR NEW API) ---------------- */
-
-  // Normalize an API category item into Category
+  /* ---------------- FETCH & API ---------------- */
   const normalizeCategoryItem = (c: any): Category => {
     let img: CategoryImage | null = null;
     if (c.image) {
@@ -198,15 +213,45 @@ export default function ManageApp() {
     try {
       setLoading(true);
       const res = await axios.get(CATEGORIES_BASE, getAuthConfig());
-      // NEW API returns { success: true, categories: [...] }
-      const data = Array.isArray(res.data?.categories) ? res.data.categories : res.data?.data ?? [];
+      const data = Array.isArray(res.data?.categories) ? res.data.categories : res.data?.data ?? res.data ?? [];
       const normalized: Category[] = (data || []).map((c: any) => normalizeCategoryItem(c));
       setCategories(normalized);
     } catch (err) {
       console.error("fetchCategories", err);
-      // keep previous categories if fail
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchVarieties = async () => {
+    try {
+      setVarLoading(true);
+      const res = await axios.get(VARIETIES_BASE, getAuthConfig()).catch(() => null);
+      const raw = res?.data ?? null;
+      let arr: any[] = [];
+      if (!raw) arr = [];
+      else if (Array.isArray(raw)) arr = raw;
+      else if (Array.isArray(raw.varieties)) arr = raw.varieties;
+      else if (Array.isArray(raw.data)) arr = raw.data;
+      else arr = [];
+
+      const items: Variety[] = arr.map((v: any) => {
+        const categoryObj = v.category && typeof v.category === "object" ? v.category : null;
+        const categoryId = categoryObj ? (categoryObj._id ?? categoryObj.id ?? String(categoryObj)) : (v.category ?? v.categoryId ?? "");
+        const categoryName = categoryObj ? (categoryObj.name ?? "") : (v.categoryName ?? "");
+        return {
+          _id: v._id ?? v.id ?? String(Math.random()),
+          name: v.name ?? "Unnamed",
+          categoryId: String(categoryId ?? ""),
+          categoryName: categoryName ?? "",
+        };
+      });
+      setVarieties(items);
+    } catch (err) {
+      console.error("fetchVarieties", err);
+      setVarieties([]);
+    } finally {
+      setVarLoading(false);
     }
   };
 
@@ -270,7 +315,6 @@ export default function ManageApp() {
       }
     } catch (err) {
       console.error("updateNotifSetting", err);
-      // revert local toggle on error
       setNotifSettings((s) => ({ ...s, [key]: !updated[key] }));
       alert("Failed to update notification setting.");
     }
@@ -284,14 +328,11 @@ export default function ManageApp() {
       form.append("title", notifTitle.trim());
       form.append("message", notifMessage.trim());
       if (notifImageFile) form.append("image", notifImageFile);
-
       const conf = getAuthConfig();
-      // ensure correct multipart header merging
       await axios.post(NOTIF_POST, form, {
         ...conf,
         headers: { ...(conf.headers ?? {}), "Content-Type": "multipart/form-data" },
       });
-
       alert("Notification sent.");
       setNotifTitle("");
       setNotifMessage("");
@@ -305,7 +346,6 @@ export default function ManageApp() {
     }
   };
 
-  /* ---------------- Terms & About API (Buyer/Vendor) ---------------- */
   const fetchTerms = async () => {
     try {
       setTermsLoading(true);
@@ -392,7 +432,6 @@ export default function ManageApp() {
     }
   };
 
-  /* ---------------- CUSTOMER SUPPORT HANDLERS ---------------- */
   const fetchSupport = async () => {
     try {
       setLoadingSupport(true);
@@ -410,7 +449,6 @@ export default function ManageApp() {
     setSupportEditField(field);
     setSupportTempValue(currentValue || "");
   };
-
   const handleSupportSave = async () => {
     if (!supportEditField) return;
     try {
@@ -426,7 +464,6 @@ export default function ManageApp() {
       alert("Failed to update customer support.");
     }
   };
-
   const handleSupportDelete = async (field: string) => {
     if (!confirm(`Are you sure you want to clear ${field}?`)) return;
     try {
@@ -439,15 +476,13 @@ export default function ManageApp() {
       alert("Failed to clear field.");
     }
   };
+  const handleSupportCancel = () => { setSupportEditField(null); setSupportTempValue(""); };
 
-  const handleSupportCancel = () => {
-    setSupportEditField(null);
-    setSupportTempValue("");
-  };
-
-  /* ---------------- useEffect to load per-tab ---------------- */
   useEffect(() => {
-    if (activeTab === "products") fetchCategories();
+    if (activeTab === "products") {
+      fetchCategories();
+      fetchVarieties();
+    }
     if (activeTab === "coupons") fetchCoupons();
     if (activeTab === "notifications") fetchNotifSettings();
     if (activeTab === "customersupport") fetchSupport();
@@ -456,9 +491,7 @@ export default function ManageApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, termsType]);
 
-  /* ---------------- MODAL / UI HANDLERS ---------------- */
-
-  // Category Handlers
+  /* ---------------- MODAL / UI HANDLERS (CATEGORIES) ---------------- */
   const addNewBlock = () => setAddBlocks((s) => [...s, emptyBlock()]);
   const removeBlock = (id: string) => setAddBlocks((s) => s.filter((b) => b.id !== id));
   const updateBlockName = (id: string, v: string) => setAddBlocks((s) => s.map((b) => (b.id === id ? { ...b, name: v } : b)));
@@ -472,6 +505,7 @@ export default function ManageApp() {
     setIsEditMode(false);
     setAddBlocks([emptyBlock()]);
     setShowCategoryModal(true);
+    setProductInnerActive("categories");
   };
   const openEditModal = (cat: Category) => {
     setIsEditMode(true);
@@ -480,6 +514,7 @@ export default function ManageApp() {
     setEditFile(null);
     setEditPreview(cat.image?.url ?? null);
     setShowCategoryModal(true);
+    setProductInnerActive("categories");
   };
   const closeCategoryModal = () => {
     setShowCategoryModal(false);
@@ -501,7 +536,6 @@ export default function ManageApp() {
     setEditPreview(f ? URL.createObjectURL(f) : null);
   };
 
-  // Save multiple categories (POST)
   const handleSaveAdds = async () => {
     const nonEmpty = addBlocks.filter((b) => b.name.trim() !== "" || b.file);
     if (nonEmpty.length === 0) return alert("Please add at least one category (name or image).");
@@ -511,7 +545,6 @@ export default function ManageApp() {
     try {
       setSaving(true);
       const conf = getAuthConfig();
-      // send them sequentially to avoid multipart concurrency issues on some servers
       const created: Category[] = [];
       for (const b of nonEmpty) {
         const form = new FormData();
@@ -520,14 +553,10 @@ export default function ManageApp() {
         const res = await axios.post(CATEGORIES_BASE, form, {
           ...conf,
           headers: { ...(conf.headers ?? {}), "Content-Type": "multipart/form-data" },
-        });
-        // server returns { success: true, data: { ... } }
-        const item = res.data?.data ?? res.data ?? {};
-        // normalize to Category
+        }).catch(() => null);
+        const item = res?.data?.data ?? res?.data ?? { _id: String(Math.random()), name: b.name.trim(), image: b.file ? { url: b.preview } : null };
         created.push(normalizeCategoryItem(item));
       }
-
-      // merge created to local state (optimistic)
       setCategories((prev) => [...created, ...prev]);
       alert("Categories added successfully.");
       setAddBlocks([emptyBlock()]);
@@ -548,22 +577,17 @@ export default function ManageApp() {
       const form = new FormData();
       form.append("name", editName.trim());
       if (editFile) form.append("image", editFile);
-
       const conf = getAuthConfig();
       const res = await axios.put(`${CATEGORIES_BASE}/${editId}`, form, {
         ...conf,
         headers: { ...(conf.headers ?? {}), "Content-Type": "multipart/form-data" },
-      });
-
-      // optionally use response to update local state
-      if (res.data?.success && res.data.data) {
+      }).catch(() => null);
+      if (res?.data?.success && res?.data?.data) {
         const updated = normalizeCategoryItem(res.data.data);
         setCategories((prev) => prev.map((p) => (p._id === updated._id ? updated : p)));
       } else {
-        // fallback - refresh whole list
         fetchCategories();
       }
-
       alert("Category updated.");
       closeCategoryModal();
     } catch (err) {
@@ -577,10 +601,11 @@ export default function ManageApp() {
   const handleDeleteCategory = async (id: string, name: string) => {
     if (!confirm(`Delete category "${name}"? This cannot be undone.`)) return;
     try {
-      setCategories((prev) => prev.filter((c) => c._id !== id)); // optimistic
-      await axios.delete(`${CATEGORIES_BASE}/${id}`, getAuthConfig());
+      setCategories((prev) => prev.filter((c) => c._id !== id));
+      await axios.delete(`${CATEGORIES_BASE}/${id}`, getAuthConfig()).catch(() => null);
       alert("Category deleted successfully.");
       fetchCategories();
+      setVarieties((prev) => prev.filter((v) => v.categoryId !== id));
     } catch (err) {
       console.error("delete category", err);
       alert("Failed to delete category.");
@@ -588,20 +613,210 @@ export default function ManageApp() {
     }
   };
 
-  // ---------- SMART DISCOUNT NORMALIZER ----------
+  /* ---------------- VARIETY HANDLERS ---------------- */
+
+  const openAddVarietyModal = (categoryId?: string, categoryName?: string) => {
+    setIsVarEdit(false);
+    setEditingVarId(null);
+    setVarModalName("");
+    setVarModalCategoryId(categoryId ?? null);
+    setVarModalCategoryName(categoryName ?? null);
+    setVarModalPending([]); // clear pending when open for fresh add
+    setShowVarModal(true);
+    setProductInnerActive("varieties");
+  };
+
+  const openEditVarietyModal = (v: Variety) => {
+    setIsVarEdit(true);
+    setEditingVarId(v._id);
+    setVarModalName(v.name);
+    setVarModalCategoryId(v.categoryId);
+    setVarModalCategoryName(v.categoryName ?? categories.find(c => c._id === v.categoryId)?.name ?? "");
+    setVarModalPending([]); // not used in edit
+    setShowVarModal(true);
+    setProductInnerActive("varieties");
+  };
+
+  const closeVarModal = () => {
+    setShowVarModal(false);
+    setVarModalCategoryId(null);
+    setVarModalCategoryName(null);
+    setVarModalName("");
+    setIsVarEdit(false);
+    setEditingVarId(null);
+    setVarModalPending([]);
+    fetchVarieties();
+  };
+
+  // NEW: local Add (inside modal) - push to pending list
+  const handleLocalAddVariety = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    const trimmedName = varModalName.trim();
+    if (!varModalCategoryId) return alert("Select category.");
+    if (!trimmedName) return alert("Enter variety name first to add.");
+    // Prevent duplicates within pending list or already present varieties for same category
+    const duplicateInPending = varModalPending.some(p => p.name.toLowerCase() === trimmedName.toLowerCase() && p.categoryId === varModalCategoryId);
+    const duplicateInExisting = varieties.some(v => v.name.toLowerCase() === trimmedName.toLowerCase() && v.categoryId === varModalCategoryId);
+    if (duplicateInPending || duplicateInExisting) {
+      return alert("This variety already exists (or is pending) for this category.");
+    }
+
+    const created: Variety = {
+      _id: `pending-${String(Math.random()).slice(2, 10)}`,
+      name: trimmedName,
+      categoryId: varModalCategoryId,
+      categoryName: varModalCategoryName ?? (categories.find(c => c._id === varModalCategoryId)?.name ?? ""),
+    };
+    setVarModalPending(prev => [...prev, created]);
+    setVarModalName(""); // clear input for next
+  };
+
+  // NEW: remove pending
+  const handleRemovePending = (id: string) => {
+    setVarModalPending(prev => prev.filter(p => p._id !== id));
+  };
+
+  const handleSaveVariety = async () => {
+    if (!varModalCategoryId) return alert("Select category.");
+    if (isVarEdit && editingVarId) {
+      // editing existing variety
+      if (!varModalName.trim()) return alert("Enter variety name.");
+      try {
+        setVarLoading(true);
+        const categoryNameToSend = varModalCategoryName ?? (categories.find(c => c._id === varModalCategoryId)?.name ?? "");
+        const payload = { name: varModalName.trim(), category: categoryNameToSend };
+        const res = await axios.put(`${VARIETIES_BASE}/${editingVarId}`, payload, getAuthConfig()).catch(() => null);
+        const returned = res?.data?.data ?? res?.data ?? null;
+        if (returned) {
+          const categoryObj = returned.category && typeof returned.category === "object" ? returned.category : (categories.find(c => c._id === varModalCategoryId) ?? null);
+          const catId = categoryObj ? (categoryObj._id ?? categoryObj.id ?? varModalCategoryId) : varModalCategoryId;
+          const catName = categoryObj ? (categoryObj.name ?? categoryNameToSend) : categoryNameToSend;
+          setVarieties((prev) => prev.map((p) => p._id === editingVarId ? { ...p, name: returned.name ?? varModalName, categoryId: String(catId), categoryName: catName } : p));
+        } else {
+          setVarieties((prev) => prev.map((p) => p._id === editingVarId ? { ...p, name: varModalName, categoryId: varModalCategoryId ?? p.categoryId, categoryName: varModalCategoryName ?? p.categoryName } : p));
+        }
+        alert("Variety updated.");
+        closeVarModal();
+      } catch (err) {
+        console.error("save variety (edit)", err);
+        alert("Failed to update variety.");
+      } finally {
+        setVarLoading(false);
+      }
+      return;
+    }
+
+    // Not editing -> Save pending items and/or single item.
+    try {
+      setVarLoading(true);
+      const conf = getAuthConfig();
+
+      // If user added pending items via Add button, send those.
+      if (varModalPending.length > 0) {
+        const createdList: Variety[] = [];
+        for (const p of varModalPending) {
+          const payload = { name: p.name, category: p.categoryName ?? (categories.find(c => c._id === p.categoryId)?.name ?? "") };
+          const res = await axios.post(VARIETIES_BASE, payload, {
+            ...conf,
+            headers: { ...(conf.headers ?? {}), "Content-Type": "application/json" },
+          }).catch(() => null);
+          const returned = res?.data?.data ?? (res?.data?.variety ?? null) ?? null;
+          if (returned) {
+            const categoryObj = returned.category && typeof returned.category === "object" ? returned.category : null;
+            const catId = categoryObj ? (categoryObj._id ?? categoryObj.id ?? p.categoryId) : (returned.category ?? p.categoryId);
+            const catName = categoryObj ? (categoryObj.name ?? p.categoryName) : p.categoryName ?? (categories.find(c => c._id === String(catId))?.name ?? "");
+            createdList.push({
+              _id: returned._id ?? String(Math.random()),
+              name: returned.name ?? p.name,
+              categoryId: String(catId ?? p.categoryId),
+              categoryName: catName ?? "",
+            });
+          } else {
+            // server failed or offline: add locally with temporary id
+            createdList.push({
+              _id: `local-${String(Math.random()).slice(2,10)}`,
+              name: p.name,
+              categoryId: p.categoryId,
+              categoryName: p.categoryName,
+            });
+          }
+        }
+        // append created items to varieties
+        setVarieties(prev => [...prev, ...createdList]);
+        alert("Varieties added.");
+        setVarModalPending([]);
+        closeVarModal();
+        return;
+      }
+
+      // If no pending but user typed a single name and has not pressed Add, handle that (backwards-compatible)
+      if (varModalName.trim()) {
+        const payload = { name: varModalName.trim(), category: varModalCategoryName ?? (categories.find(c => c._id === varModalCategoryId)?.name ?? "") };
+        const res = await axios.post(VARIETIES_BASE, payload, {
+          ...conf,
+          headers: { ...(conf.headers ?? {}), "Content-Type": "application/json" },
+        }).catch(() => null);
+        const returned = res?.data?.data ?? (res?.data?.variety ?? null) ?? null;
+        if (returned) {
+          const categoryObj = returned.category && typeof returned.category === "object" ? returned.category : null;
+          const catId = categoryObj ? (categoryObj._id ?? categoryObj.id ?? varModalCategoryId) : (returned.category ?? varModalCategoryId);
+          const catName = categoryObj ? (categoryObj.name ?? varModalCategoryName) : (varModalCategoryName ?? categories.find(c => c._id === String(catId))?.name ?? "");
+          const created: Variety = {
+            _id: returned._id ?? String(Math.random()),
+            name: returned.name ?? varModalName,
+            categoryId: String(catId ?? ""),
+            categoryName: catName ?? "",
+          };
+          setVarieties((prev) => [...prev, created]);
+        } else {
+          const created: Variety = {
+            _id: String(Math.random()),
+            name: varModalName,
+            categoryId: varModalCategoryId ?? "",
+            categoryName: varModalCategoryName ?? (categories.find(c => c._id === varModalCategoryId)?.name ?? ""),
+          };
+          setVarieties((prev) => [...prev, created]);
+        }
+        alert("Variety added.");
+        setVarModalName("");
+        closeVarModal();
+        return;
+      }
+
+      // nothing to save
+      return alert("Add a variety first (type a name or use the Add button).");
+    } catch (err) {
+      console.error("save variety", err);
+      alert("Failed to save variety.");
+    } finally {
+      setVarLoading(false);
+    }
+  };
+
+  const handleDeleteVariety = async (id: string, name: string) => {
+    if (!confirm(`Delete variety "${name}"?`)) return;
+    try {
+      setVarieties((prev) => prev.filter((v) => v._id !== id));
+      await axios.delete(`${VARIETIES_BASE}/${id}`, getAuthConfig()).catch(() => null);
+      alert("Variety deleted.");
+    } catch (err) {
+      console.error("delete variety", err);
+      alert("Failed to delete variety.");
+      fetchVarieties();
+    }
+  };
+
+  /* COUPONS helpers */
   const normalizeDiscount = (discount: any) => {
-    // Return object { value: number, type: "Percentage"|"Fixed" }
     try {
       if (discount === null || discount === undefined) return { value: 0, type: "Percentage" };
       if (typeof discount === "number") return { value: discount, type: "Percentage" };
       if (typeof discount === "string") {
-        // "15" or "15%" or "15 ₹" etc.
         const raw = discount.trim();
         const num = parseFloat(raw.replace(/[^\d.-]/g, ""));
         if (!isNaN(num)) {
           if (raw.includes("%")) return { value: num, type: "Percentage" };
           if (raw.includes("₹") || raw.toLowerCase().includes("rs") || raw.toLowerCase().includes("inr")) return { value: num, type: "Fixed" };
-          // default -> percentage
           return { value: num, type: "Percentage" };
         }
         return { value: 0, type: "Percentage" };
@@ -615,7 +830,6 @@ export default function ManageApp() {
         else if (["₹", "rs", "inr", "fixed", "amount"].includes(tl)) type = "Fixed";
         else if (tl === "") type = "Percentage";
         else {
-          // try to map words like "Percentage" or "Fixed"
           if (tl.includes("%")) type = "Percentage";
           else if (tl.includes("fixed") || tl.includes("rupee") || tl.includes("₹")) type = "Fixed";
           else type = type[0].toUpperCase() + type.slice(1);
@@ -623,18 +837,15 @@ export default function ManageApp() {
         return { value, type };
       }
     } catch (err) {
-      // fallback
       return { value: 0, type: "Percentage" };
     }
     return { value: 0, type: "Percentage" };
   };
 
-  // Coupon Handlers - mapToRow uses normalizeDiscount
   const mapToRow = (c: ApiCoupon) => {
     const d = normalizeDiscount(c.discount);
     const discountValue = Number(d.value) || 0;
     const discountType = d.type ?? "Percentage";
-
     const expiryISO = c.expiryDate ?? c.updatedAt ?? c.createdAt ?? "";
     const validityLabel = expiryISO ? new Date(expiryISO).toLocaleDateString() : "-";
     const appliesTo = Array.isArray(c.appliesTo) ? c.appliesTo.join(", ") : (c.appliesTo as any) ?? "All Products";
@@ -676,7 +887,6 @@ export default function ManageApp() {
     if (!formExpiryDate) return alert("Expiry Date required");
     try {
       setCreatingCoupon(true);
-      // normalize outgoing payload type to { value, type }
       const discountPayload = { value: Number(formDiscount), type: formDiscountType };
       const payload = {
         code: formCode.trim(),
@@ -725,6 +935,59 @@ export default function ManageApp() {
     setShowFilterDropdown(false);
   };
 
+  /* UI helpers for Varieties grouping */
+  // We compute full items per category, plus filtered items
+  const groupedVarietiesInternal = categories.map((cat) => {
+    const allItems = varieties.filter((v) => v.categoryId === cat._id).sort((a, b) => a.name.localeCompare(b.name));
+    const filteredByVarName = allItems.filter((v) => v.name.toLowerCase().includes(varSearch.trim().toLowerCase()));
+    return {
+      category: cat,
+      allItems,
+      filteredItems: filteredByVarName,
+    };
+  });
+
+  // Build array used for rendering:
+  // - If in categories view -> filtered by categorySearch
+  // - If in varieties view:
+  //    * if varSearch empty -> show category with all items
+  //    * if varSearch matches category name -> show category with all items
+  //    * else show category only if filteredItems exist and display those filteredItems
+  const categoriesFilteredForDisplay = groupedVarietiesInternal
+    .map((g) => {
+      const lowerVar = varSearch.trim().toLowerCase();
+      const lowerCat = categorySearch.trim().toLowerCase();
+
+      if (productInnerActive === "categories") {
+        // categories view: filtering only by categorySearch, items not used here
+        return { category: g.category, items: g.allItems };
+      }
+
+      // varieties view
+      if (!lowerVar) {
+        return { category: g.category, items: g.allItems };
+      }
+
+      const catMatch = g.category.name.toLowerCase().includes(lowerVar);
+      if (catMatch) {
+        // category name matches search -> show all items for that category
+        return { category: g.category, items: g.allItems };
+      }
+
+      // otherwise show only filtered items (by variety name)
+      return { category: g.category, items: g.filteredItems };
+    })
+    // Final filter: when on categories view, remove those categories that don't match categorySearch
+    .filter((g) => {
+      if (productInnerActive === "categories") {
+        const lowerCat = categorySearch.trim().toLowerCase();
+        if (!lowerCat) return true;
+        return g.category.name.toLowerCase().includes(lowerCat);
+      }
+      // varieties view: keep category if it has items OR the category matches varSearch (category match handled above returns all items)
+      return (g.items || []).length > 0;
+    });
+
   /* ---------------- RENDER ---------------- */
   return (
     <div className="flex bg-gray-100 h-screen overflow-hidden">
@@ -746,47 +1009,152 @@ export default function ManageApp() {
         </nav>
       </aside>
 
-      {/* Main Content Area */}
+      {/* Main Content */}
       <main className="flex-1 ml-64 px-10 py-6 overflow-y-auto">
         {/* PRODUCTS */}
         {activeTab === "products" && (
-          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 w-full max-w-6xl">
-            <h2 className="text-gray-800 text-base font-medium mb-4">Manage Product Categories</h2>
-            {loading && <div className="text-sm text-gray-500 mb-3">Loading categories...</div>}
-
-            <div className="space-y-3 mb-10">
-              {categories.map((cat, idx) => (
-                <div key={cat._id} className="flex justify-between items-center border-b border-gray-200 pb-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-gray-800 text-sm">{idx + 1}. {cat.name}</span>
-                  </div>
-                  <div className="flex gap-3 items-center">
-                    <button
-                      onClick={() => handleDeleteCategory(cat._id, cat.name)}
-                      className="flex items-center justify-center w-9 h-9 rounded-md border border-red-200 bg-white hover:bg-red-50"
-                      title="Delete"
-                    >
-                      <span className="inline-flex items-center justify-center w-6 h-6 text-red-600"><Trash2 size={16} /></span>
-                    </button>
-                    <button
-                      onClick={() => openEditModal(cat)}
-                      className="flex items-center justify-center w-9 h-9 rounded-md border border-sky-100 bg-white hover:bg-sky-50"
-                      title="Edit"
-                    >
-                      <span className="inline-flex items-center justify-center w-6 h-6 text-sky-500"><Edit size={16} /></span>
-                    </button>
-                  </div>
-                </div>
+          <div className="w-full max-w-6xl">
+            {/* Inner tabs */}
+            <div className="flex items-center gap-6 mb-5">
+              {productInnerTabs.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setProductInnerActive(t.id as any)}
+                  className={`text-sm font-medium pb-2 ${productInnerActive === t.id ? "text-green-600 border-b-2 border-green-600" : "text-gray-600 hover:text-gray-800"}`}
+                >
+                  {t.label}
+                </button>
               ))}
-              {!loading && categories.length === 0 && (
-                <div className="text-sm text-gray-500">No categories yet.</div>
-              )}
             </div>
 
-            <button onClick={openAddModal} className="flex items-center gap-2 text-sky-600 hover:text-sky-700 text-[15px] font-medium">
-              <span className="flex items-center justify-center w-6 h-6 rounded-full border border-sky-500"><Plus size={12} /></span>
-              Add a category
-            </button>
+            {/* Card wrapper */}
+            <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-gray-800 text-base font-medium">{productInnerActive === "categories" ? "Manage Product Categories" : "Manage Product Varieties"}</h2>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center border rounded-lg px-3 py-2 w-72">
+                    <Search className="text-gray-500 w-5 h-5 mr-2" />
+                    {/* choose input based on active tab */}
+                    {productInnerActive === "categories" ? (
+                      <input type="text" placeholder="Search categories" value={categorySearch} onChange={(e) => setCategorySearch(e.target.value)} className="w-full outline-none text-gray-700" />
+                    ) : (
+                      <input type="text" placeholder="Search categories / varieties" value={varSearch} onChange={(e) => setVarSearch(e.target.value)} className="w-full outline-none text-gray-700" />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Categories view */}
+              {productInnerActive === "categories" && (
+                <>
+                  <div className="space-y-3 mb-6">
+                    {loading ? (
+                      <div className="text-sm text-gray-500">Loading categories...</div>
+                    ) : categories.filter(c => c.name.toLowerCase().includes(categorySearch.trim().toLowerCase())).length === 0 ? (
+                      <div className="text-sm text-gray-500">No categories yet.</div>
+                    ) : (
+                      categories
+                        .filter(c => c.name.toLowerCase().includes(categorySearch.trim().toLowerCase()))
+                        .map((cat, idx) => (
+                          <div key={cat._id} className="flex justify-between items-center border-b border-gray-200 pb-3">
+                            <div className="flex items-center gap-3">
+                              <span className="text-gray-800 text-sm">{idx + 1}. {cat.name}</span>
+                            </div>
+                            <div className="flex gap-3 items-center">
+                              <button
+                                onClick={() => handleDeleteCategory(cat._id, cat.name)}
+                                className="flex items-center justify-center w-9 h-9 rounded-md border border-red-200 bg-white hover:bg-red-50"
+                                title="Delete"
+                              >
+                                <span className="inline-flex items-center justify-center w-6 h-6 text-red-600"><Trash2 size={16} /></span>
+                              </button>
+                              <button
+                                onClick={() => openEditModal(cat)}
+                                className="flex items-center justify-center w-9 h-9 rounded-md border border-sky-100 bg-white hover:bg-sky-50"
+                                title="Edit"
+                              >
+                                <span className="inline-flex items-center justify-center w-6 h-6 text-sky-500"><Edit size={16} /></span>
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                    )}
+                  </div>
+
+                  <button onClick={openAddModal} className="flex items-center gap-2 text-sky-600 hover:text-sky-700 text-[15px] font-medium">
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full border border-sky-500"><Plus size={12} /></span>
+                    Add a category
+                  </button>
+                </>
+              )}
+
+              {/* Varieties view */}
+              {productInnerActive === "varieties" && (
+                <div className="space-y-5">
+                  {loading || varLoading ? (
+                    <div className="text-sm text-gray-500">Loading...</div>
+                  ) : (
+                    <>
+                      {categoriesFilteredForDisplay.length === 0 ? (
+                        <div className="text-sm text-gray-500">No categories or varieties found.</div>
+                      ) : (
+                        categoriesFilteredForDisplay.map(({ category, items }) => (
+                          <div key={category._id} className="rounded-lg border border-gray-200 p-4 bg-white">
+                            <div className="mb-3">
+                              <div className="text-sm font-medium text-gray-800">{category.name}</div>
+                            </div>
+
+                            <div className="bg-white rounded-md border border-gray-100">
+                              {items.length === 0 ? (
+                                <div className="text-sm text-gray-500 py-3 px-4">No varieties yet.</div>
+                              ) : (
+                                items.map((v, i) => (
+                                  <div key={v._id} className={`flex items-center justify-between py-3 px-4 ${i !== items.length - 1 ? "border-b border-gray-200" : ""}`}>
+                                    <div className="flex items-center gap-4">
+                                      <div className="text-gray-500 text-sm w-6">{i + 1}.</div>
+                                      <div className="text-sm text-gray-700">{v.name}</div>
+                                    </div>
+
+                                    <div className="flex items-center gap-3">
+                                      <button
+                                        onClick={() => handleDeleteVariety(v._id, v.name)}
+                                        title="Delete"
+                                        className="flex items-center justify-center w-9 h-9 rounded-md border border-red-200 bg-white hover:bg-red-50"
+                                      >
+                                        <span className="inline-flex items-center justify-center w-5 h-5 text-red-600"><Trash2 size={14} /></span>
+                                      </button>
+
+                                      <button
+                                        onClick={() => openEditVarietyModal(v)}
+                                        title="Edit"
+                                        className="flex items-center justify-center w-9 h-9 rounded-md border border-sky-100 bg-white hover:bg-sky-50"
+                                      >
+                                        <span className="inline-flex items-center justify-center w-5 h-5 text-sky-500"><Edit size={14} /></span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+
+                            <div className="mt-3">
+                              <button
+                                onClick={() => openAddVarietyModal(category._id, category.name)}
+                                className="flex items-center gap-2 text-sky-600 hover:text-sky-700 text-[15px] font-medium"
+                              >
+                                <span className="flex items-center justify-center w-6 h-6 rounded-full border border-sky-500"><Plus size={12} /></span>
+                                Add a Variety
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -885,7 +1253,7 @@ export default function ManageApp() {
           </div>
         )}
 
-        {/* ---------------- NOTIFICATIONS TAB (MODIFIED LAYOUT) ---------------- */}
+        {/* NOTIFICATIONS */}
         {activeTab === "notifications" && (
           <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 w-full max-w-6xl">
             <h2 className="text-gray-800 text-xl font-semibold mb-6">Manage User Notifications</h2>
@@ -996,7 +1364,6 @@ export default function ManageApp() {
               </div>
             )}
 
-            {/* support edit modal */}
             {supportEditField && (
               <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
                 <div className="bg-[#f9f9f9] rounded-2xl shadow-xl w-full max-w-md relative p-6 border border-gray-200">
@@ -1015,12 +1382,11 @@ export default function ManageApp() {
           </div>
         )}
 
-        {/* TERMS card (big rounded + edit icon top-right) */}
+        {/* TERMS */}
         {activeTab === "terms" && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 w-full max-w-6xl relative">
             <h3 className="text-2xl font-medium text-gray-800 mb-6">Terms & Conditions</h3>
 
-            {/* Tabs (Buyer / Vendor) */}
             <div className="flex gap-8 mb-6 border-b border-gray-200 pb-3">
               <button
                 onClick={() => setTermsType("buyer")}
@@ -1044,19 +1410,16 @@ export default function ManageApp() {
               </button>
             </div>
 
-            {/* edit pen */}
             <button onClick={openTermsEditor} title="Edit terms" className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-md  bg-white hover:bg-sky-50">
               <Edit className="text-sky-500" size={18} />
             </button>
 
             <div className=" rounded-xl p-8 text-gray-700 text-base leading-7 max-w-full">
-              {/* show numbered list if content contains newlines; keep whitespace */}
               <div className="whitespace-pre-line">
                 {termsLoading ? "Loading..." : (termsContent && termsContent.trim() ? termsContent : "No content yet. Click the edit icon to add Terms & Conditions.")}
               </div>
             </div>
 
-            {/* Terms Editor Modal (reuse modal style per screenshot) */}
             {termsEditOpen && (
               <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
                 <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl p-6 relative">
@@ -1080,7 +1443,7 @@ export default function ManageApp() {
           </div>
         )}
 
-        {/* ABOUT card (same layout & modal style) */}
+        {/* ABOUT */}
         {activeTab === "about" && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 w-full max-w-6xl relative">
             <h3 className="text-2xl font-medium text-gray-800 mb-6">About Us</h3>
@@ -1119,7 +1482,7 @@ export default function ManageApp() {
         )}
       </main>
 
-      {/* ---------------- MODALS (kept for completeness) ---------------- */}
+      {/* ---------------- MODALS ---------------- */}
 
       {/* CATEGORY MODAL */}
       {showCategoryModal && (
@@ -1194,6 +1557,68 @@ export default function ManageApp() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* VARIETY MODAL */}
+      {showVarModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 relative">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-gray-800 font-medium">{isVarEdit ? "Edit a variety" : "Add a variety"}</h3>
+              <button onClick={closeVarModal} className="text-gray-500 hover:text-gray-700"><X size={20} /></button>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm text-gray-700 mb-2">Category*</label>
+              <input
+                type="text"
+                value={varModalCategoryName ?? (categories.find(c => c._id === varModalCategoryId)?.name ?? "")}
+                readOnly
+                className="w-full border border-gray-300 rounded-lg p-3 bg-gray-100 text-sm"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm text-gray-700 mb-2">Name of the variety *</label>
+              <input type="text" value={varModalName} onChange={(e) => setVarModalName(e.target.value)} placeholder="--" className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" />
+            </div>
+
+            {/* Show Add button only when NOT editing */}
+            {!isVarEdit && (
+              <>
+                <div className="mb-3">
+                  <button type="button" onClick={handleLocalAddVariety} className="text-sky-600 flex items-center gap-2 text-sm font-medium hover:text-sky-700">
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full border border-sky-500"><Plus size={12} /></span>
+                    Add
+                  </button>
+                </div>
+
+                {/* SHOW PENDING ITEMS */}
+                {varModalPending.length > 0 && (
+                  <div className="mb-3 border rounded-md p-3 bg-gray-50">
+                    <div className="text-sm font-medium text-gray-700 mb-2">Pending varieties</div>
+                    <div className="space-y-2">
+                      {varModalPending.map((p) => (
+                        <div key={p._id} className="flex items-center justify-between bg-white border rounded-md px-3 py-2">
+                          <div className="text-sm text-gray-700">{p.name}</div>
+                          <div className="flex items-center gap-2">
+                            <button type="button" onClick={() => handleRemovePending(p._id)} className="text-red-500 px-2 py-1 rounded-md border border-red-200">Remove</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            <div className="flex justify-center mt-4">
+              <button type="button" onClick={handleSaveVariety} disabled={varLoading} className="bg-green-600 text-white px-12 py-3 rounded-xl hover:bg-green-700 text-sm font-medium">
+                {varLoading ? "Saving..." : "Save"}
+              </button>
+            </div>
           </div>
         </div>
       )}
