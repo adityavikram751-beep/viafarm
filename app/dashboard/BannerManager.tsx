@@ -92,7 +92,7 @@ const BannerCard = ({ banner, handleDelete, isDeleting, isVerticalStyle }: any) 
     <div className="p-3 transition hover">
       <div
         className={`relative w-full overflow-hidden rounded-lg cursor-pointer ${
-          isVerticalStyle ? "h-[180px]" : "h-[120px]"
+          isVerticalStyle ? "h-[180px]" : "h-[180px]"
         }`}
         onClick={() => setConnectedUrl(banner.link || banner.src)}
       >
@@ -127,22 +127,7 @@ const BannerCard = ({ banner, handleDelete, isDeleting, isVerticalStyle }: any) 
         </button>
       </div>
 
-      {/* Connected URL input */}
-      <div className="mt-3">
-        <label className="block text-sm font-semibold text-gray-700 mb-1 ml-1">
-          Connected URL
-        </label>
-        <div className="relative">
-          <LinkIcon className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            value={connectedUrl}
-            placeholder="Click image to show URL"
-            readOnly
-            className="pl-9 pr-3 py-2 w-full border border-green-400 rounded-md text-sm bg-gray-50 focus:ring-2 focus:ring-green-500 outline-none"
-          />
-        </div>
-      </div>
+    
     </div>
   );
 };
@@ -165,7 +150,7 @@ const AddImagesButton = ({ placement, setBanners }: any) => {
       const formData = new FormData();
       formData.append("images", file);
       formData.append("title", `Banner for ${placement}`);
-      formData.append("link", "https://example.com");
+      
       formData.append("placement", placement);
       formData.append("status", "Active");
 
