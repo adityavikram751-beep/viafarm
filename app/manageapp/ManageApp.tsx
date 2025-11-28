@@ -38,17 +38,18 @@ interface CategoryImage {
   public_id?: string;
 }
 interface Category {
-  _id: string;
+  _id?: string;
   name: string;
   image?: CategoryImage | null;
   createdAt?: string;
   updatedAt?: string;
 }
 type ApiCoupon = {
-  _id: string;
+  _id?: string;
+  id?: string;
   code: string;
   discount: { value: number; type?: string } | number | string;
-  appliesTo?: string[];
+  appliesTo?: string[] | string;
   createdBy?: any;
   startDate?: string;
   expiryDate?: string;
@@ -57,7 +58,7 @@ type ApiCoupon = {
   updatedAt?: string;
 };
 type Variety = {
-  _id: string;
+  _id?: string;
   name: string;
   categoryId: string;
   categoryName?: string;
@@ -75,8 +76,13 @@ export default function ManageApp() {
   ];
   const [activeTab, setActiveTab] = useState<string>("products");
 
-  const productInnerTabs = [{ id: "categories", label: "Product Categories" }, { id: "varieties", label: "Product Varieties" }];
-  const [productInnerActive, setProductInnerActive] = useState<"categories" | "varieties">("categories");
+  const productInnerTabs = [
+    { id: "categories", label: "Product Categories" },
+    { id: "varieties", label: "Product Varieties" },
+  ];
+  const [productInnerActive, setProductInnerActive] = useState<
+    "categories" | "varieties"
+  >("categories");
 
   /* CATEGORIES */
   const [categories, setCategories] = useState<Category[]>([]);
@@ -84,8 +90,18 @@ export default function ManageApp() {
   const [saving, setSaving] = useState(false);
 
   /* Add modal - multiple blocks */
-  type AddBlock = { id: string; name: string; file: File | null; preview: string | null };
-  const emptyBlock = (): AddBlock => ({ id: String(Math.random()), name: "", file: null, preview: null });
+  type AddBlock = {
+    id: string;
+    name: string;
+    file: File | null;
+    preview: string | null;
+  };
+  const emptyBlock = (): AddBlock => ({
+    id: String(Math.random()).slice(2),
+    name: "",
+    file: null,
+    preview: null,
+  });
   const [addBlocks, setAddBlocks] = useState<AddBlock[]>([emptyBlock()]);
 
   /* Edit modal - single */
@@ -102,13 +118,17 @@ export default function ManageApp() {
   const [varLoading, setVarLoading] = useState(false);
   const [varSearch, setVarSearch] = useState("");
   const [showVarModal, setShowVarModal] = useState(false);
-  const [varModalCategoryId, setVarModalCategoryId] = useState<string | null>(null);
-  const [varModalCategoryName, setVarModalCategoryName] = useState<string | null>(null);
+  const [varModalCategoryId, setVarModalCategoryId] = useState<string | null>(
+    null
+  );
+  const [varModalCategoryName, setVarModalCategoryName] = useState<
+    string | null
+  >(null);
   const [varModalName, setVarModalName] = useState("");
   const [isVarEdit, setIsVarEdit] = useState(false);
   const [editingVarId, setEditingVarId] = useState<string | null>(null);
 
-  // NEW: pending list inside modal (so Add pushes locally before hitting Save)
+  // pending list inside modal
   const [varModalPending, setVarModalPending] = useState<Variety[]>([]);
 
   /* separate search for categories */
@@ -118,7 +138,9 @@ export default function ManageApp() {
   const [couponsRaw, setCouponsRaw] = useState<ApiCoupon[]>([]);
   const [couponLoading, setCouponLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [couponFilter, setCouponFilter] = useState<"all" | "active" | "expired">("all");
+  const [couponFilter, setCouponFilter] = useState<
+    "all" | "active" | "expired"
+  >("all");
   const couponsPerPage = 12;
   const [currentPage, setCurrentPage] = useState(1);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -137,14 +159,18 @@ export default function ManageApp() {
   const [notifTitle, setNotifTitle] = useState("");
   const [notifMessage, setNotifMessage] = useState("");
   const [notifImageFile, setNotifImageFile] = useState<File | null>(null);
-  const [notifImagePreview, setNotifImagePreview] = useState<string | null>(null);
+  const [notifImagePreview, setNotifImagePreview] = useState<string | null>(
+    null
+  );
   const [sendingNotif, setSendingNotif] = useState(false);
 
   /* COUPON FORM */
   const [showAddCoupon, setShowAddCoupon] = useState(false);
   const [formCode, setFormCode] = useState("");
   const [formDiscount, setFormDiscount] = useState<number | "">("");
-  const [formDiscountType, setFormDiscountType] = useState<"Percentage" | "Fixed">("Percentage");
+  const [formDiscountType, setFormDiscountType] = useState<
+    "Percentage" | "Fixed"
+  >("Percentage");
   const [formMinOrder, setFormMinOrder] = useState<number | "">("");
   const [formUsageLimit, setFormUsageLimit] = useState<number | "">("");
   const [formStartDate, setFormStartDate] = useState("");
@@ -168,9 +194,15 @@ export default function ManageApp() {
   const [aboutSaving, setAboutSaving] = useState(false);
 
   /* CUSTOMER SUPPORT */
-  const [supportData, setSupportData] = useState<{ phone?: string; email?: string; operatingHours?: string } | null>(null);
+  const [supportData, setSupportData] = useState<{
+    phone?: string;
+    email?: string;
+    operatingHours?: string;
+  } | null>(null);
   const [loadingSupport, setLoadingSupport] = useState(false);
-  const [supportEditField, setSupportEditField] = useState<string | null>(null);
+  const [supportEditField, setSupportEditField] = useState<string | null>(
+    null
+  );
   const [supportTempValue, setSupportTempValue] = useState<string>("");
 
   /* helper auth */
@@ -178,7 +210,8 @@ export default function ManageApp() {
     if (!raw) return "";
     try {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object" && parsed.token) return String(parsed.token);
+      if (parsed && typeof parsed === "object" && parsed.token)
+        return String(parsed.token);
     } catch {}
     return raw ?? "";
   };
@@ -196,12 +229,16 @@ export default function ManageApp() {
   /* ---------------- FETCH & API ---------------- */
   const normalizeCategoryItem = (c: any): Category => {
     let img: CategoryImage | null = null;
-    if (c.image) {
+    if (c?.image) {
       if (typeof c.image === "string") img = { url: c.image };
-      else if (typeof c.image === "object") img = { url: c.image.url ?? (c.image.secure_url ?? undefined), public_id: c.image.public_id };
+      else if (typeof c.image === "object")
+        img = {
+          url: c.image.url ?? c.image.secure_url ?? undefined,
+          public_id: c.image.public_id,
+        };
     }
     return {
-      _id: c._id ?? c.id ?? String(Math.random()),
+      _id: c._id ?? c.id ?? String(Math.random()).slice(2),
       name: c.name ?? "Unnamed",
       image: img,
       createdAt: c.createdAt,
@@ -213,8 +250,12 @@ export default function ManageApp() {
     try {
       setLoading(true);
       const res = await axios.get(CATEGORIES_BASE, getAuthConfig());
-      const data = Array.isArray(res.data?.categories) ? res.data.categories : res.data?.data ?? res.data ?? [];
-      const normalized: Category[] = (data || []).map((c: any) => normalizeCategoryItem(c));
+      const data = Array.isArray(res.data?.categories)
+        ? res.data.categories
+        : res.data?.data ?? res.data ?? [];
+      const normalized: Category[] = (data || []).map((c: any) =>
+        normalizeCategoryItem(c)
+      );
       setCategories(normalized);
     } catch (err) {
       console.error("fetchCategories", err);
@@ -226,7 +267,9 @@ export default function ManageApp() {
   const fetchVarieties = async () => {
     try {
       setVarLoading(true);
-      const res = await axios.get(VARIETIES_BASE, getAuthConfig()).catch(() => null);
+      const res = await axios.get(VARIETIES_BASE, getAuthConfig()).catch(
+        () => null
+      );
       const raw = res?.data ?? null;
       let arr: any[] = [];
       if (!raw) arr = [];
@@ -236,11 +279,16 @@ export default function ManageApp() {
       else arr = [];
 
       const items: Variety[] = arr.map((v: any) => {
-        const categoryObj = v.category && typeof v.category === "object" ? v.category : null;
-        const categoryId = categoryObj ? (categoryObj._id ?? categoryObj.id ?? String(categoryObj)) : (v.category ?? v.categoryId ?? "");
-        const categoryName = categoryObj ? (categoryObj.name ?? "") : (v.categoryName ?? "");
+        const categoryObj =
+          v.category && typeof v.category === "object" ? v.category : null;
+        const categoryId = categoryObj
+          ? categoryObj._id ?? categoryObj.id ?? String(categoryObj)
+          : v.category ?? v.categoryId ?? "";
+        const categoryName = categoryObj
+          ? categoryObj.name ?? ""
+          : v.categoryName ?? "";
         return {
-          _id: v._id ?? v.id ?? String(Math.random()),
+          _id: v._id ?? v.id ?? String(Math.random()).slice(2),
           name: v.name ?? "Unnamed",
           categoryId: String(categoryId ?? ""),
           categoryName: categoryName ?? "",
@@ -259,7 +307,10 @@ export default function ManageApp() {
     try {
       setCouponLoading(true);
       const res = await axios.get(COUPONS_BASE, getAuthConfig());
-      const data = Array.isArray(res.data) ? res.data : res.data?.data ?? res.data?.coupons ?? [];
+      // server might return array or { data: [...] } or { coupons: [...] }
+      const data = Array.isArray(res.data)
+        ? res.data
+        : res.data?.data ?? res.data?.coupons ?? [];
       setCouponsRaw(data || []);
       setCurrentPage(1);
     } catch (err) {
@@ -321,7 +372,8 @@ export default function ManageApp() {
   };
 
   const sendNotification = async () => {
-    if (!notifTitle.trim() || !notifMessage.trim()) return alert("Title and message are required.");
+    if (!notifTitle.trim() || !notifMessage.trim())
+      return alert("Title and message are required.");
     try {
       setSendingNotif(true);
       const form = new FormData();
@@ -509,7 +561,7 @@ export default function ManageApp() {
   };
   const openEditModal = (cat: Category) => {
     setIsEditMode(true);
-    setEditId(cat._id);
+    setEditId(cat._id ?? cat.name ?? null);
     setEditName(cat.name);
     setEditFile(null);
     setEditPreview(cat.image?.url ?? null);
@@ -554,7 +606,7 @@ export default function ManageApp() {
           ...conf,
           headers: { ...(conf.headers ?? {}), "Content-Type": "multipart/form-data" },
         }).catch(() => null);
-        const item = res?.data?.data ?? res?.data ?? { _id: String(Math.random()), name: b.name.trim(), image: b.file ? { url: b.preview } : null };
+        const item = res?.data?.data ?? res?.data ?? { _id: String(Math.random()).slice(2), name: b.name.trim(), image: b.file ? { url: b.preview } : null };
         created.push(normalizeCategoryItem(item));
       }
       setCategories((prev) => [...created, ...prev]);
@@ -601,7 +653,7 @@ export default function ManageApp() {
   const handleDeleteCategory = async (id: string, name: string) => {
     if (!confirm(`Delete category "${name}"? This cannot be undone.`)) return;
     try {
-      setCategories((prev) => prev.filter((c) => c._id !== id));
+      setCategories((prev) => prev.filter((c) => (c._id ?? c.name) !== id));
       await axios.delete(`${CATEGORIES_BASE}/${id}`, getAuthConfig()).catch(() => null);
       alert("Category deleted successfully.");
       fetchCategories();
@@ -628,10 +680,10 @@ export default function ManageApp() {
 
   const openEditVarietyModal = (v: Variety) => {
     setIsVarEdit(true);
-    setEditingVarId(v._id);
+    setEditingVarId(v._id ?? null);
     setVarModalName(v.name);
     setVarModalCategoryId(v.categoryId);
-    setVarModalCategoryName(v.categoryName ?? categories.find(c => c._id === v.categoryId)?.name ?? "");
+    setVarModalCategoryName(v.categoryName ?? categories.find(c => (c._id ?? c.name) === v.categoryId)?.name ?? "");
     setVarModalPending([]); // not used in edit
     setShowVarModal(true);
     setProductInnerActive("varieties");
@@ -648,13 +700,12 @@ export default function ManageApp() {
     fetchVarieties();
   };
 
-  // NEW: local Add (inside modal) - push to pending list
+  // local Add inside modal
   const handleLocalAddVariety = (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
     const trimmedName = varModalName.trim();
     if (!varModalCategoryId) return alert("Select category.");
     if (!trimmedName) return alert("Enter variety name first to add.");
-    // Prevent duplicates within pending list or already present varieties for same category
     const duplicateInPending = varModalPending.some(p => p.name.toLowerCase() === trimmedName.toLowerCase() && p.categoryId === varModalCategoryId);
     const duplicateInExisting = varieties.some(v => v.name.toLowerCase() === trimmedName.toLowerCase() && v.categoryId === varModalCategoryId);
     if (duplicateInPending || duplicateInExisting) {
@@ -662,16 +713,15 @@ export default function ManageApp() {
     }
 
     const created: Variety = {
-      _id: `pending-${String(Math.random()).slice(2, 10)}`,
+      _id: `pending-${String(Math.random()).slice(2,10)}`,
       name: trimmedName,
       categoryId: varModalCategoryId,
-      categoryName: varModalCategoryName ?? (categories.find(c => c._id === varModalCategoryId)?.name ?? ""),
+      categoryName: varModalCategoryName ?? (categories.find(c => (c._id ?? c.name) === varModalCategoryId)?.name ?? ""),
     };
     setVarModalPending(prev => [...prev, created]);
-    setVarModalName(""); // clear input for next
+    setVarModalName("");
   };
 
-  // NEW: remove pending
   const handleRemovePending = (id: string) => {
     setVarModalPending(prev => prev.filter(p => p._id !== id));
   };
@@ -683,17 +733,17 @@ export default function ManageApp() {
       if (!varModalName.trim()) return alert("Enter variety name.");
       try {
         setVarLoading(true);
-        const categoryNameToSend = varModalCategoryName ?? (categories.find(c => c._id === varModalCategoryId)?.name ?? "");
+        const categoryNameToSend = varModalCategoryName ?? (categories.find(c => (c._id ?? c.name) === varModalCategoryId)?.name ?? "");
         const payload = { name: varModalName.trim(), category: categoryNameToSend };
         const res = await axios.put(`${VARIETIES_BASE}/${editingVarId}`, payload, getAuthConfig()).catch(() => null);
         const returned = res?.data?.data ?? res?.data ?? null;
         if (returned) {
-          const categoryObj = returned.category && typeof returned.category === "object" ? returned.category : (categories.find(c => c._id === varModalCategoryId) ?? null);
+          const categoryObj = returned.category && typeof returned.category === "object" ? returned.category : (categories.find(c => (c._id ?? c.name) === varModalCategoryId) ?? null);
           const catId = categoryObj ? (categoryObj._id ?? categoryObj.id ?? varModalCategoryId) : varModalCategoryId;
           const catName = categoryObj ? (categoryObj.name ?? categoryNameToSend) : categoryNameToSend;
-          setVarieties((prev) => prev.map((p) => p._id === editingVarId ? { ...p, name: returned.name ?? varModalName, categoryId: String(catId), categoryName: catName } : p));
+          setVarieties((prev) => prev.map((p) => (p._id ?? p.name) === editingVarId ? { ...p, name: returned.name ?? varModalName, categoryId: String(catId), categoryName: catName } : p));
         } else {
-          setVarieties((prev) => prev.map((p) => p._id === editingVarId ? { ...p, name: varModalName, categoryId: varModalCategoryId ?? p.categoryId, categoryName: varModalCategoryName ?? p.categoryName } : p));
+          setVarieties((prev) => prev.map((p) => (p._id ?? p.name) === editingVarId ? { ...p, name: varModalName, categoryId: varModalCategoryId ?? p.categoryId, categoryName: varModalCategoryName ?? p.categoryName } : p));
         }
         alert("Variety updated.");
         closeVarModal();
@@ -706,16 +756,14 @@ export default function ManageApp() {
       return;
     }
 
-    // Not editing -> Save pending items and/or single item.
     try {
       setVarLoading(true);
       const conf = getAuthConfig();
 
-      // If user added pending items via Add button, send those.
       if (varModalPending.length > 0) {
         const createdList: Variety[] = [];
         for (const p of varModalPending) {
-          const payload = { name: p.name, category: p.categoryName ?? (categories.find(c => c._id === p.categoryId)?.name ?? "") };
+          const payload = { name: p.name, category: p.categoryName ?? (categories.find(c => (c._id ?? c.name) === p.categoryId)?.name ?? "") };
           const res = await axios.post(VARIETIES_BASE, payload, {
             ...conf,
             headers: { ...(conf.headers ?? {}), "Content-Type": "application/json" },
@@ -724,15 +772,14 @@ export default function ManageApp() {
           if (returned) {
             const categoryObj = returned.category && typeof returned.category === "object" ? returned.category : null;
             const catId = categoryObj ? (categoryObj._id ?? categoryObj.id ?? p.categoryId) : (returned.category ?? p.categoryId);
-            const catName = categoryObj ? (categoryObj.name ?? p.categoryName) : p.categoryName ?? (categories.find(c => c._id === String(catId))?.name ?? "");
+            const catName = categoryObj ? (categoryObj.name ?? p.categoryName) : p.categoryName ?? (categories.find(c => (c._id ?? c.name) === String(catId))?.name ?? "");
             createdList.push({
-              _id: returned._id ?? String(Math.random()),
+              _id: returned._id ?? String(Math.random()).slice(2),
               name: returned.name ?? p.name,
               categoryId: String(catId ?? p.categoryId),
               categoryName: catName ?? "",
             });
           } else {
-            // server failed or offline: add locally with temporary id
             createdList.push({
               _id: `local-${String(Math.random()).slice(2,10)}`,
               name: p.name,
@@ -741,7 +788,6 @@ export default function ManageApp() {
             });
           }
         }
-        // append created items to varieties
         setVarieties(prev => [...prev, ...createdList]);
         alert("Varieties added.");
         setVarModalPending([]);
@@ -749,9 +795,8 @@ export default function ManageApp() {
         return;
       }
 
-      // If no pending but user typed a single name and has not pressed Add, handle that (backwards-compatible)
       if (varModalName.trim()) {
-        const payload = { name: varModalName.trim(), category: varModalCategoryName ?? (categories.find(c => c._id === varModalCategoryId)?.name ?? "") };
+        const payload = { name: varModalName.trim(), category: varModalCategoryName ?? (categories.find(c => (c._id ?? c.name) === varModalCategoryId)?.name ?? "") };
         const res = await axios.post(VARIETIES_BASE, payload, {
           ...conf,
           headers: { ...(conf.headers ?? {}), "Content-Type": "application/json" },
@@ -760,9 +805,9 @@ export default function ManageApp() {
         if (returned) {
           const categoryObj = returned.category && typeof returned.category === "object" ? returned.category : null;
           const catId = categoryObj ? (categoryObj._id ?? categoryObj.id ?? varModalCategoryId) : (returned.category ?? varModalCategoryId);
-          const catName = categoryObj ? (categoryObj.name ?? varModalCategoryName) : (varModalCategoryName ?? categories.find(c => c._id === String(catId))?.name ?? "");
+          const catName = categoryObj ? (categoryObj.name ?? varModalCategoryName) : (varModalCategoryName ?? categories.find(c => (c._id ?? c.name) === String(catId))?.name ?? "");
           const created: Variety = {
-            _id: returned._id ?? String(Math.random()),
+            _id: returned._id ?? String(Math.random()).slice(2),
             name: returned.name ?? varModalName,
             categoryId: String(catId ?? ""),
             categoryName: catName ?? "",
@@ -770,10 +815,10 @@ export default function ManageApp() {
           setVarieties((prev) => [...prev, created]);
         } else {
           const created: Variety = {
-            _id: String(Math.random()),
+            _id: String(Math.random()).slice(2),
             name: varModalName,
             categoryId: varModalCategoryId ?? "",
-            categoryName: varModalCategoryName ?? (categories.find(c => c._id === varModalCategoryId)?.name ?? ""),
+            categoryName: varModalCategoryName ?? (categories.find(c => (c._id ?? c.name) === varModalCategoryId)?.name ?? ""),
           };
           setVarieties((prev) => [...prev, created]);
         }
@@ -783,7 +828,6 @@ export default function ManageApp() {
         return;
       }
 
-      // nothing to save
       return alert("Add a variety first (type a name or use the Add button).");
     } catch (err) {
       console.error("save variety", err);
@@ -796,7 +840,7 @@ export default function ManageApp() {
   const handleDeleteVariety = async (id: string, name: string) => {
     if (!confirm(`Delete variety "${name}"?`)) return;
     try {
-      setVarieties((prev) => prev.filter((v) => v._id !== id));
+      setVarieties((prev) => prev.filter((v) => (v._id ?? v.name) !== id));
       await axios.delete(`${VARIETIES_BASE}/${id}`, getAuthConfig()).catch(() => null);
       alert("Variety deleted.");
     } catch (err) {
@@ -849,14 +893,17 @@ export default function ManageApp() {
     const expiryISO = c.expiryDate ?? c.updatedAt ?? c.createdAt ?? "";
     const validityLabel = expiryISO ? new Date(expiryISO).toLocaleDateString() : "-";
     const appliesTo = Array.isArray(c.appliesTo) ? c.appliesTo.join(", ") : (c.appliesTo as any) ?? "All Products";
-    const createdByLabel = c.createdBy && typeof c.createdBy === "object" ? (c.createdBy.name ?? c.createdBy._id ?? String(c.createdBy)) : String(c.createdBy ?? "-");
+    const createdByLabel = c.createdBy && typeof c.createdBy === "object" ? (c.createdBy.name ?? c.createdBy._id ?? c.createdBy.id ?? String(c.createdBy)) : String(c.createdBy ?? "-");
     let status = (c.status ?? "").toString();
     if (!status) {
       if (!expiryISO) status = "Active";
       else status = new Date(expiryISO) > new Date() ? "Active" : "Expired";
     }
-    return { _id: c._id, code: c.code, discountValue, discountType, appliesTo, createdByLabel, validityLabel, expiryISO, status };
+    // IMPORTANT FIX: use backend id if _id missing
+    const id = c._id ?? c.id ?? String(Math.random()).slice(2);
+    return { _id: id, code: c.code, discountValue, discountType, appliesTo, createdByLabel, validityLabel, expiryISO, status };
   };
+
   const couponRows = couponsRaw.map(mapToRow);
   const filtered = couponRows.filter((r) => {
     const matchesFilter = couponFilter === "all" ? true : couponFilter === "active" ? r.status.toLowerCase() === "active" : r.status.toLowerCase() === "expired";
@@ -914,14 +961,25 @@ export default function ManageApp() {
       setCreatingCoupon(false);
     }
   };
-  const openDeleteModal = (id: string, code: string) => { setOpenDeleteId(id); setOpenDeleteCode(code); setDeleteReason(""); };
+
+  // openDeleteModal: we pass the id returned by mapToRow (which ensures c._id ?? c.id)
+  const openDeleteModal = (id: string, code: string) => {
+    setOpenDeleteId(id);
+    setOpenDeleteCode(code);
+    setDeleteReason("");
+  };
   const closeDeleteModal = () => { setOpenDeleteId(null); setOpenDeleteCode(null); setDeleteReason(""); };
+
+  // IMPORTANT: delete should use the backend id (map ensures that) and NOT send body unless server expects it.
   const confirmDeleteCoupon = async () => {
     if (!openDeleteId) return;
-    if (!deleteReason.trim()) return alert("Please enter a reason.");
     try {
-      await axios.delete(`${COUPONS_BASE}/${openDeleteId}`, { ...getAuthConfig(), data: { reason: deleteReason.trim() }, });
-      setCouponsRaw((prev) => prev.filter((c) => c._id !== openDeleteId));
+      // call delete with auth headers only
+      await axios.delete(`${COUPONS_BASE}/${openDeleteId}`, getAuthConfig());
+      setCouponsRaw((prev) => prev.filter((c) => {
+        const cid = (c._id ?? c.id ?? "");
+        return cid !== openDeleteId;
+      }));
       closeDeleteModal();
       alert("Coupon deleted successfully.");
     } catch (err) {
@@ -929,6 +987,7 @@ export default function ManageApp() {
       alert("Failed to delete coupon.");
     }
   };
+
   const handleFilterSelect = (filterKey: "all" | "active" | "expired") => {
     setCouponFilter(filterKey);
     setCurrentPage(1);
@@ -936,9 +995,9 @@ export default function ManageApp() {
   };
 
   /* UI helpers for Varieties grouping */
-  // We compute full items per category, plus filtered items
   const groupedVarietiesInternal = categories.map((cat) => {
-    const allItems = varieties.filter((v) => v.categoryId === cat._id).sort((a, b) => a.name.localeCompare(b.name));
+    const catId = cat._id ?? cat.name;
+    const allItems = varieties.filter((v) => v.categoryId === String(catId)).sort((a, b) => a.name.localeCompare(b.name));
     const filteredByVarName = allItems.filter((v) => v.name.toLowerCase().includes(varSearch.trim().toLowerCase()));
     return {
       category: cat,
@@ -947,44 +1006,32 @@ export default function ManageApp() {
     };
   });
 
-  // Build array used for rendering:
-  // - If in categories view -> filtered by categorySearch
-  // - If in varieties view:
-  //    * if varSearch empty -> show category with all items
-  //    * if varSearch matches category name -> show category with all items
-  //    * else show category only if filteredItems exist and display those filteredItems
   const categoriesFilteredForDisplay = groupedVarietiesInternal
     .map((g) => {
       const lowerVar = varSearch.trim().toLowerCase();
       const lowerCat = categorySearch.trim().toLowerCase();
 
       if (productInnerActive === "categories") {
-        // categories view: filtering only by categorySearch, items not used here
         return { category: g.category, items: g.allItems };
       }
 
-      // varieties view
       if (!lowerVar) {
         return { category: g.category, items: g.allItems };
       }
 
       const catMatch = g.category.name.toLowerCase().includes(lowerVar);
       if (catMatch) {
-        // category name matches search -> show all items for that category
         return { category: g.category, items: g.allItems };
       }
 
-      // otherwise show only filtered items (by variety name)
       return { category: g.category, items: g.filteredItems };
     })
-    // Final filter: when on categories view, remove those categories that don't match categorySearch
     .filter((g) => {
       if (productInnerActive === "categories") {
         const lowerCat = categorySearch.trim().toLowerCase();
         if (!lowerCat) return true;
         return g.category.name.toLowerCase().includes(lowerCat);
       }
-      // varieties view: keep category if it has items OR the category matches varSearch (category match handled above returns all items)
       return (g.items || []).length > 0;
     });
 
@@ -1057,13 +1104,13 @@ export default function ManageApp() {
                       categories
                         .filter(c => c.name.toLowerCase().includes(categorySearch.trim().toLowerCase()))
                         .map((cat, idx) => (
-                          <div key={cat._id} className="flex justify-between items-center border-b border-gray-200 pb-3">
+                          <div key={cat._id ?? cat.name ?? idx} className="flex justify-between items-center border-b border-gray-200 pb-3">
                             <div className="flex items-center gap-3">
                               <span className="text-gray-800 text-sm">{idx + 1}. {cat.name}</span>
                             </div>
                             <div className="flex gap-3 items-center">
                               <button
-                                onClick={() => handleDeleteCategory(cat._id, cat.name)}
+                                onClick={() => handleDeleteCategory(cat._id ?? cat.name ?? "")}
                                 className="flex items-center justify-center w-9 h-9 rounded-md border border-red-200 bg-white hover:bg-red-50"
                                 title="Delete"
                               >
@@ -1100,7 +1147,7 @@ export default function ManageApp() {
                         <div className="text-sm text-gray-500">No categories or varieties found.</div>
                       ) : (
                         categoriesFilteredForDisplay.map(({ category, items }) => (
-                          <div key={category._id} className="rounded-lg border border-gray-200 p-4 bg-white">
+                          <div key={category._id ?? category.name} className="rounded-lg border border-gray-200 p-4 bg-white">
                             <div className="mb-3">
                               <div className="text-sm font-medium text-gray-800">{category.name}</div>
                             </div>
@@ -1110,7 +1157,7 @@ export default function ManageApp() {
                                 <div className="text-sm text-gray-500 py-3 px-4">No varieties yet.</div>
                               ) : (
                                 items.map((v, i) => (
-                                  <div key={v._id} className={`flex items-center justify-between py-3 px-4 ${i !== items.length - 1 ? "border-b border-gray-200" : ""}`}>
+                                  <div key={v._id ?? v.name ?? i} className={`flex items-center justify-between py-3 px-4 ${i !== items.length - 1 ? "border-b border-gray-200" : ""}`}>
                                     <div className="flex items-center gap-4">
                                       <div className="text-gray-500 text-sm w-6">{i + 1}.</div>
                                       <div className="text-sm text-gray-700">{v.name}</div>
@@ -1118,7 +1165,7 @@ export default function ManageApp() {
 
                                     <div className="flex items-center gap-3">
                                       <button
-                                        onClick={() => handleDeleteVariety(v._id, v.name)}
+                                        onClick={() => handleDeleteVariety(v._id ?? v.name ?? "", v.name)}
                                         title="Delete"
                                         className="flex items-center justify-center w-9 h-9 rounded-md border border-red-200 bg-white hover:bg-red-50"
                                       >
@@ -1140,7 +1187,7 @@ export default function ManageApp() {
 
                             <div className="mt-3">
                               <button
-                                onClick={() => openAddVarietyModal(category._id, category.name)}
+                                onClick={() => openAddVarietyModal(category._id ?? category.name, category.name)}
                                 className="flex items-center gap-2 text-sky-600 hover:text-sky-700 text-[15px] font-medium"
                               >
                                 <span className="flex items-center justify-center w-6 h-6 rounded-full border border-sky-500"><Plus size={12} /></span>
@@ -1219,7 +1266,7 @@ export default function ManageApp() {
                     <tr><td colSpan={7} className="p-4 text-sm text-gray-500">No coupons found.</td></tr>
                   ) : (
                     currentCoupons.map((c) => (
-                      <tr key={c._id} className="border-t hover:bg-gray-50">
+                      <tr key={c._id ?? c.code} className="border-t hover:bg-gray-50">
                         <td className="py-3 px-4">{c.code}</td>
                         <td className="py-3 px-4">{c.discountValue} {c.discountType ? `(${c.discountType})` : ""}</td>
                         <td className="py-3 px-4">{c.appliesTo}</td>
@@ -1231,7 +1278,7 @@ export default function ManageApp() {
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <button onClick={() => openDeleteModal(c._id, c.code)} className="text-red-500 border p-1.5 rounded-md">
+                          <button onClick={() => openDeleteModal(c._id ?? c.code, c.code)} className="text-red-500 border p-1.5 rounded-md">
                             <Trash2 size={16} />
                           </button>
                         </td>
@@ -1317,6 +1364,21 @@ export default function ManageApp() {
                 </div>
               )}
             </div>
+
+            <div className="border-t pt-4">
+              <h3 className="text-lg font-medium mb-2">Send Broadcast Notification</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <input value={notifTitle} onChange={(e) => setNotifTitle(e.target.value)} placeholder="Title" className="border p-2 rounded" />
+                <input value={notifMessage} onChange={(e) => setNotifMessage(e.target.value)} placeholder="Message" className="border p-2 rounded" />
+                <div>
+                  <input id="notifImage" type="file" accept="image/*" onChange={handleNotifImageChange} className="hidden" />
+                  <label htmlFor="notifImage" className="border rounded px-3 py-2 cursor-pointer inline-block">Upload image</label>
+                </div>
+              </div>
+              <div className="mt-3">
+                <button onClick={sendNotification} className="bg-blue-600 text-white px-4 py-2 rounded">Send</button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1390,21 +1452,13 @@ export default function ManageApp() {
             <div className="flex gap-8 mb-6 border-b border-gray-200 pb-3">
               <button
                 onClick={() => setTermsType("buyer")}
-                className={`text-base font-medium pb-1 ${
-                  termsType === "buyer"
-                    ? "text-green-600 border-b-2 border-green-600"
-                    : "text-gray-600 hover:text-gray-800"
-                }`}
+                className={`text-base font-medium pb-1 ${termsType === "buyer" ? "text-green-600 border-b-2 border-green-600" : "text-gray-600 hover:text-gray-800"}`}
               >
                 Buyer
               </button>
               <button
                 onClick={() => setTermsType("vendor")}
-                className={`text-base font-medium pb-1 ${
-                  termsType === "vendor"
-                    ? "text-green-600 border-b-2 border-green-600"
-                    : "text-gray-600 hover:text-gray-800"
-                }`}
+                className={`text-base font-medium pb-1 ${termsType === "vendor" ? "text-green-600 border-b-2 border-green-600" : "text-gray-600 hover:text-gray-800"}`}
               >
                 Vendor
               </button>
@@ -1574,7 +1628,7 @@ export default function ManageApp() {
               <label className="block text-sm text-gray-700 mb-2">Category*</label>
               <input
                 type="text"
-                value={varModalCategoryName ?? (categories.find(c => c._id === varModalCategoryId)?.name ?? "")}
+                value={varModalCategoryName ?? (categories.find(c => (c._id ?? c.name) === varModalCategoryId)?.name ?? "")}
                 readOnly
                 className="w-full border border-gray-300 rounded-lg p-3 bg-gray-100 text-sm"
               />
@@ -1585,7 +1639,6 @@ export default function ManageApp() {
               <input type="text" value={varModalName} onChange={(e) => setVarModalName(e.target.value)} placeholder="--" className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" />
             </div>
 
-            {/* Show Add button only when NOT editing */}
             {!isVarEdit && (
               <>
                 <div className="mb-3">
@@ -1595,7 +1648,6 @@ export default function ManageApp() {
                   </button>
                 </div>
 
-                {/* SHOW PENDING ITEMS */}
                 {varModalPending.length > 0 && (
                   <div className="mb-3 border rounded-md p-3 bg-gray-50">
                     <div className="text-sm font-medium text-gray-700 mb-2">Pending varieties</div>
@@ -1604,7 +1656,7 @@ export default function ManageApp() {
                         <div key={p._id} className="flex items-center justify-between bg-white border rounded-md px-3 py-2">
                           <div className="text-sm text-gray-700">{p.name}</div>
                           <div className="flex items-center gap-2">
-                            <button type="button" onClick={() => handleRemovePending(p._id)} className="text-red-500 px-2 py-1 rounded-md border border-red-200">Remove</button>
+                            <button type="button" onClick={() => handleRemovePending(p._id ?? "")} className="text-red-500 px-2 py-1 rounded-md border border-red-200">Remove</button>
                           </div>
                         </div>
                       ))}
@@ -1673,7 +1725,7 @@ export default function ManageApp() {
                   <select value={formAppliesTo} onChange={(e) => setFormAppliesTo(e.target.value)} className="w-full border rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none bg-white">
                     <option value="All Products">--</option>
                     {categories.map((cat) => (
-                      <option key={cat._id} value={cat.name}>
+                      <option key={cat._id ?? cat.name} value={cat.name}>
                         {cat.name}
                       </option>
                     ))}
@@ -1698,13 +1750,14 @@ export default function ManageApp() {
               <h3 className="text-xl font-medium text-gray-800">Delete a coupon</h3>
               <button onClick={closeDeleteModal} className="text-gray-500 hover:text-gray-700"><X size={20} /></button>
             </div>
-            <div className="mb-8 mt-5">
-              <label htmlFor="deleteReason" className="block text-gray-700 text-sm font-medium mb-2">Write your reason to delete the coupon</label>
-              <textarea id="deleteReason" value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} rows={4} className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"></textarea>
+            <div className="mb-4 mt-5">
+              <p className="text-sm text-gray-700 mb-3">Are you sure you want to delete coupon <strong>{openDeleteCode}</strong> ?</p>
+              <label htmlFor="deleteReason" className="block text-gray-700 text-sm font-medium mb-2">Reason (optional)</label>
+              <textarea id="deleteReason" value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} rows={3} className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="Optional reason for audit"></textarea>
             </div>
             <div className="flex justify-center">
-              <button onClick={confirmDeleteCoupon} disabled={!deleteReason.trim()} className="bg-green-600 text-white px-10 py-3 rounded-xl hover:bg-green-700 text-[15px] font-medium transition disabled:bg-green-300 w-full max-w-xs">
-                Send
+              <button onClick={confirmDeleteCoupon} className="bg-red-600 text-white px-10 py-3 rounded-xl hover:bg-red-700 text-[15px] font-medium transition w-full max-w-xs">
+                Delete
               </button>
             </div>
           </div>
