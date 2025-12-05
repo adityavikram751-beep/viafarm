@@ -1365,18 +1365,13 @@ export default function ManageApp() {
               )}
             </div>
 
-            <div className="border-t pt-4">
-              <h3 className="text-lg font-medium mb-2">Send Broadcast Notification</h3>
+            <div >
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <input value={notifTitle} onChange={(e) => setNotifTitle(e.target.value)} placeholder="Title" className="border p-2 rounded" />
-                <input value={notifMessage} onChange={(e) => setNotifMessage(e.target.value)} placeholder="Message" className="border p-2 rounded" />
                 <div>
-                  <input id="notifImage" type="file" accept="image/*" onChange={handleNotifImageChange} className="hidden" />
-                  <label htmlFor="notifImage" className="border rounded px-3 py-2 cursor-pointer inline-block">Upload image</label>
                 </div>
               </div>
               <div className="mt-3">
-                <button onClick={sendNotification} className="bg-blue-600 text-white px-4 py-2 rounded">Send</button>
+
               </div>
             </div>
           </div>
