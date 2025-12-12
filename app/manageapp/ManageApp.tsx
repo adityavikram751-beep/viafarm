@@ -175,7 +175,8 @@ export default function ManageApp() {
   const [formUsageLimit, setFormUsageLimit] = useState<number | "">("");
   const [formStartDate, setFormStartDate] = useState("");
   const [formExpiryDate, setFormExpiryDate] = useState("");
-  const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
+  // <-- CHANGED: multiple categories selection. default to ["All Products"]
+  const [formAppliesTo, setFormAppliesTo] = useState<string[]>(["All Products"]);
   const [creatingCoupon, setCreatingCoupon] = useState(false);
   const [formTotalUsage, setFormTotalUsage] = useState("");
 
@@ -667,6 +668,10 @@ export default function ManageApp() {
 
   /* ---------------- VARIETY HANDLERS ---------------- */
 
+  /**
+   * If categoryId is provided, the modal will open pre-selected for that category.
+   * If not provided, modal opens and user can select category from dropdown.
+   */
   const openAddVarietyModal = (categoryId?: string, categoryName?: string) => {
     setIsVarEdit(false);
     setEditingVarId(null);
@@ -925,7 +930,8 @@ export default function ManageApp() {
     setFormUsageLimit("");
     setFormStartDate("");
     setFormExpiryDate("");
-    setFormAppliesTo("");
+    // default to All Products
+    setFormAppliesTo(["All Products"]);
   };
   const closeAddCoupon = () => setShowAddCoupon(false);
   const handleCreateCoupon = async () => {
@@ -935,6 +941,12 @@ export default function ManageApp() {
     try {
       setCreatingCoupon(true);
       const discountPayload = { value: Number(formDiscount), type: formDiscountType };
+      // ensure appliesTo is array, and when All Products is present, send ["All Products"]
+      const appliesToValue =
+        (Array.isArray(formAppliesTo) ? formAppliesTo : [String(formAppliesTo)])?.length
+          ? (Array.isArray(formAppliesTo) && formAppliesTo.includes("All Products") ? ["All Products"] : Array.isArray(formAppliesTo) ? formAppliesTo : [String(formAppliesTo)])
+          : ["All Products"];
+
       const payload = {
         code: formCode.trim(),
         discount: discountPayload,
@@ -943,7 +955,7 @@ export default function ManageApp() {
         totalUsageLimit: formTotalUsage ? Number(formTotalUsage) : 50,
         startDate: formStartDate ? new Date(formStartDate).toISOString() : new Date().toISOString(),
         expiryDate: new Date(formExpiryDate).toISOString(),
-        appliesTo: formAppliesTo?.length ? formAppliesTo : ["All Products"],
+        appliesTo: appliesToValue,
         applicableProducts: [],
       };
       const conf = getAuthConfig();
@@ -1034,6 +1046,69 @@ export default function ManageApp() {
       }
       return (g.items || []).length > 0;
     });
+
+  /* ---------------- MULTI-SELECT DROPDOWN COMPONENT (ADDED) ---------------- */
+  const MultiSelectDropdown: React.FC<{
+    options: string[];
+    value: string[];
+    onChange: (v: string[]) => void;
+  }> = ({ options, value, onChange }) => {
+    const [open, setOpen] = useState(false);
+
+    const toggle = (item: string) => {
+      if (item === "All Products") {
+        onChange(["All Products"]);
+        return;
+      }
+
+      const updated = value.includes(item)
+        ? value.filter((v) => v !== item)
+        : [...value.filter((v) => v !== "All Products"), item];
+
+      onChange(updated);
+    };
+
+    return (
+      <div className="relative w-full">
+        {/* Top Box */}
+        <div
+          className="border rounded-lg p-2.5 bg-white w-full cursor-pointer flex justify-between items-center"
+          onClick={() => setOpen(!open)}
+        >
+          <span className="text-gray-700 text-sm">
+            {value.length > 0 ? value.join(", ") : "--"}
+          </span>
+
+          <svg
+            className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeWidth="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+
+        {/* Dropdown */}
+        {open && (
+          <div className="absolute left-0 top-full mt-1 w-full bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto z-50">
+            {options.map((item) => (
+              <div
+                key={item}
+                onClick={() => toggle(item)}
+                className={`px-3 py-2 text-sm cursor-pointer flex justify-between hover:bg-gray-100 ${value.includes(item) ? "bg-green-50" : ""}`}
+              >
+                <span>{item}</span>
+                {value.includes(item) && (
+                  <span className="text-green-600 font-bold">✔</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   /* ---------------- RENDER ---------------- */
   return (
@@ -1129,10 +1204,13 @@ export default function ManageApp() {
                     )}
                   </div>
 
-                  <button onClick={openAddModal} className="flex items-center gap-2 text-sky-600 hover:text-sky-700 text-[15px] font-medium">
-                    <span className="flex items-center justify-center w-6 h-6 rounded-full border border-sky-500"><Plus size={12} /></span>
-                    Add a category
-                  </button>
+                  {/* Add category button - placed below the list (as requested) */}
+                  <div className="mt-4">
+                    <button onClick={openAddModal} className="flex items-center gap-2 text-sky-600 hover:text-sky-700 text-[15px] font-medium">
+                      <span className="flex items-center justify-center w-6 h-6 rounded-full border border-sky-500"><Plus size={12} /></span>
+                      Add a category
+                    </button>
+                  </div>
                 </>
               )}
 
@@ -1146,59 +1224,70 @@ export default function ManageApp() {
                       {categoriesFilteredForDisplay.length === 0 ? (
                         <div className="text-sm text-gray-500">No categories or varieties found.</div>
                       ) : (
-                        categoriesFilteredForDisplay.map(({ category, items }) => (
-                          <div key={category._id ?? category.name} className="rounded-lg border border-gray-200 p-4 bg-white">
-                            <div className="mb-3">
-                              <div className="text-sm font-medium text-gray-800">{category.name}</div>
-                            </div>
+                        <>
+                          {categoriesFilteredForDisplay.map(({ category, items }) => (
+                            <div key={category._id ?? category.name} className="rounded-lg border border-gray-200 p-4 bg-white">
+                              <div className="mb-3">
+                                <div className="text-sm font-medium text-gray-800">{category.name}</div>
+                              </div>
 
-                            <div className="bg-white rounded-md border border-gray-100">
-                              {items.length === 0 ? (
-                                <div className="text-sm text-gray-500 py-3 px-4">No varieties yet.</div>
-                              ) : (
-                                items.map((v, i) => (
-                                  <div key={v._id ?? v.name ?? i} className={`flex items-center justify-between py-3 px-4 ${i !== items.length - 1 ? "border-b border-gray-200" : ""}`}>
-                                    <div className="flex items-center gap-4">
-                                      <div className="text-gray-500 text-sm w-6">{i + 1}.</div>
-                                      <div className="text-sm text-gray-700">{v.name}</div>
+                              <div className="bg-white rounded-md border border-gray-100">
+                                {items.length === 0 ? (
+                                  <div className="text-sm text-gray-500 py-3 px-4">No varieties yet.</div>
+                                ) : (
+                                  items.map((v, i) => (
+                                    <div key={v._id ?? v.name ?? i} className={`flex items-center justify-between py-3 px-4 ${i !== items.length - 1 ? "border-b border-gray-200" : ""}`}>
+                                      <div className="flex items-center gap-4">
+                                        <div className="text-gray-500 text-sm w-6">{i + 1}.</div>
+                                        <div className="text-sm text-gray-700">{v.name}</div>
+                                      </div>
+
+                                      <div className="flex items-center gap-3">
+                                        <button
+                                          onClick={() => handleDeleteVariety(v._id ?? v.name ?? "", v.name)}
+                                          title="Delete"
+                                          className="flex items-center justify-center w-9 h-9 rounded-md border border-red-200 bg-white hover:bg-red-50"
+                                        >
+                                          <span className="inline-flex items-center justify-center w-5 h-5 text-red-600"><Trash2 size={14} /></span>
+                                        </button>
+
+                                        <button
+                                          onClick={() => openEditVarietyModal(v)}
+                                          title="Edit"
+                                          className="flex items-center justify-center w-9 h-9 rounded-md border border-sky-100 bg-white hover:bg-sky-50"
+                                        >
+                                          <span className="inline-flex items-center justify-center w-5 h-5 text-sky-500"><Edit size={14} /></span>
+                                        </button>
+                                      </div>
                                     </div>
+                                  ))
+                                )}
+                              </div>
 
-                                    <div className="flex items-center gap-3">
-                                      <button
-                                        onClick={() => handleDeleteVariety(v._id ?? v.name ?? "", v.name)}
-                                        title="Delete"
-                                        className="flex items-center justify-center w-9 h-9 rounded-md border border-red-200 bg-white hover:bg-red-50"
-                                      >
-                                        <span className="inline-flex items-center justify-center w-5 h-5 text-red-600"><Trash2 size={14} /></span>
-                                      </button>
-
-                                      <button
-                                        onClick={() => openEditVarietyModal(v)}
-                                        title="Edit"
-                                        className="flex items-center justify-center w-9 h-9 rounded-md border border-sky-100 bg-white hover:bg-sky-50"
-                                      >
-                                        <span className="inline-flex items-center justify-center w-5 h-5 text-sky-500"><Edit size={14} /></span>
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))
-                              )}
+                              <div className="mt-3">
+                                {/* Keep per-category Add button (optional), but smaller icon */}
+                                <button
+                                  onClick={() => openAddVarietyModal(category._id ?? category.name, category.name)}
+                                  className="flex items-center gap-2 text-sky-600 hover:text-sky-700 text-[14px] font-medium"
+                                >
+                                  <span className="flex items-center justify-center w-5 h-5 rounded-full border border-sky-500"><Plus size={12} /></span>
+                                  Add a Variety
+                                </button>
+                              </div>
                             </div>
+                          ))}
 
-                            <div className="mt-3">
-                              <button
-                                onClick={() => openAddVarietyModal(category._id ?? category.name, category.name)}
-                                className="flex items-center gap-2 text-sky-600 hover:text-sky-700 text-[15px] font-medium"
-                              >
-                                <span className="flex items-center justify-center w-6 h-6 rounded-full border border-sky-500"><Plus size={12} /></span>
-                                Add a Variety
-                              </button>
-                            </div>
+                          {/* Global Add Variety button placed below the whole table/card as requested */}
+                          <div className="mt-4 flex items-center">
+                            <button onClick={() => openAddVarietyModal()} className="flex items-center gap-2 text-sky-600 hover:text-sky-700 text-[15px] font-medium">
+                              <span className="flex items-center justify-center w-6 h-6 rounded-full border border-sky-500"><Plus size={12} /></span>
+                              Add Variety
+                            </button>
                           </div>
-                        ))
+                        </>
                       )}
                     </>
-                  )}
+                  )} 
                 </div>
               )}
             </div>
@@ -1609,133 +1698,156 @@ export default function ManageApp() {
           </div>
         </div>
       )}
+{/* VARIETY MODAL */}
+{showVarModal && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 relative">
+      
+      {/* Header */}
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-gray-800 font-medium">
+          {isVarEdit ? "Edit a variety" : "Add a variety"}
+        </h3>
+        <button onClick={closeVarModal} className="text-gray-500 hover:text-gray-700">
+          <X size={20} />
+        </button>
+      </div>
 
-      {/* VARIETY MODAL */}
-      {showVarModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 relative">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-gray-800 font-medium">{isVarEdit ? "Edit a variety" : "Add a variety"}</h3>
-              <button onClick={closeVarModal} className="text-gray-500 hover:text-gray-700"><X size={20} /></button>
-            </div>
+      {/* Category Dropdown */}
+      <div className="mb-4">
+        <label className="block text-sm text-gray-700 mb-2">Category *</label>
 
-            <div className="mb-4">
-              <label className="block text-sm text-gray-700 mb-2">Category*</label>
-              <input
-                type="text"
-                value={varModalCategoryName ?? (categories.find(c => (c._id ?? c.name) === varModalCategoryId)?.name ?? "")}
-                readOnly
-                className="w-full border border-gray-300 rounded-lg p-3 bg-gray-100 text-sm"
-              />
-            </div>
+        <div className="relative w-full">
+          <select
+            value={varModalCategoryId ?? ""}
+            onChange={(e) => {
+              const id = e.target.value || null;
+              setVarModalCategoryId(id);
+              const name =
+                categories.find((c) => (c._id ?? c.name) === id)?.name ?? null;
+              setVarModalCategoryName(name);
+            }}
+            className="
+              w-full
+              border border-gray-300 
+              rounded-lg 
+              px-3 
+              py-2.5 
+              text-sm 
+              bg-white 
+              appearance-none
+              focus:ring-2 
+              focus:ring-green-500 
+              focus:outline-none
+            "
+          >
+            <option value="">-- Select category --</option>
+            {categories.map((c) => (
+              <option key={c._id ?? c.name} value={c._id ?? c.name}>
+                {c.name}
+              </option>
+            ))}
+          </select>
 
-            <div className="mb-4">
-              <label className="block text-sm text-gray-700 mb-2">Name of the variety *</label>
-              <input type="text" value={varModalName} onChange={(e) => setVarModalName(e.target.value)} placeholder="--" className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" />
-            </div>
-
-            {!isVarEdit && (
-              <>
-                <div className="mb-3">
-                  <button type="button" onClick={handleLocalAddVariety} className="text-sky-600 flex items-center gap-2 text-sm font-medium hover:text-sky-700">
-                    <span className="flex items-center justify-center w-6 h-6 rounded-full border border-sky-500"><Plus size={12} /></span>
-                    Add
-                  </button>
-                </div>
-
-                {varModalPending.length > 0 && (
-                  <div className="mb-3 border rounded-md p-3 bg-gray-50">
-                    <div className="text-sm font-medium text-gray-700 mb-2">Pending varieties</div>
-                    <div className="space-y-2">
-                      {varModalPending.map((p) => (
-                        <div key={p._id} className="flex items-center justify-between bg-white border rounded-md px-3 py-2">
-                          <div className="text-sm text-gray-700">{p.name}</div>
-                          <div className="flex items-center gap-2">
-                            <button type="button" onClick={() => handleRemovePending(p._id ?? "")} className="text-red-500 px-2 py-1 rounded-md border border-red-200">Remove</button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
-            <div className="flex justify-center mt-4">
-              <button type="button" onClick={handleSaveVariety} disabled={varLoading} className="bg-green-600 text-white px-12 py-3 rounded-xl hover:bg-green-700 text-sm font-medium">
-                {varLoading ? "Saving..." : "Save"}
-              </button>
-            </div>
-          </div>
+          {/* Dropdown arrow */}
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none">
+            ▼
+          </span>
         </div>
+      </div>
+
+      {/* Variety Name */}
+      <div className="mb-4">
+        <label className="block text-sm text-gray-700 mb-2">
+          Name of the variety *
+        </label>
+        <input
+          type="text"
+          value={varModalName}
+          onChange={(e) => setVarModalName(e.target.value)}
+          placeholder="--"
+          className="
+            w-full 
+            border border-gray-300 
+            rounded-lg 
+            p-3 
+            text-sm 
+            focus:outline-none 
+            focus:ring-2 
+            focus:ring-green-500
+          "
+        />
+      </div>
+
+      {/* Add Pending Varieties (Only in Add Mode) */}
+      {!isVarEdit && (
+        <>
+          <div className="mb-3">
+            <button
+              type="button"
+              onClick={handleLocalAddVariety}
+              className="text-sky-600 flex items-center gap-2 text-sm font-medium hover:text-sky-700"
+            >
+              <span className="flex items-center justify-center w-6 h-6 rounded-full border border-sky-500">
+                <Plus size={12} />
+              </span>
+              Add
+            </button>
+          </div>
+
+          {varModalPending.length > 0 && (
+            <div className="mb-3 border rounded-md p-3 bg-gray-50">
+              <div className="text-sm font-medium text-gray-700 mb-2">
+                Pending varieties
+              </div>
+
+              <div className="space-y-2">
+                {varModalPending.map((p) => (
+                  <div
+                    key={p._id}
+                    className="flex items-center justify-between bg-white border rounded-md px-3 py-2"
+                  >
+                    <div className="text-sm text-gray-700">{p.name}</div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePending(p._id ?? "")}
+                      className="text-red-500 px-2 py-1 rounded-md border border-red-200"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
-      {/* ADD COUPON MODAL */}
-      {showAddCoupon && (
-        <div className="fixed inset-0 bg-black/40 flex justify-center items-start pt-20 z-50">
-          <div className="bg-white rounded-2xl shadow-lg w-[780px] p-7 relative">
-            <div className="flex justify-between items-center border-b pb-3 mb-5">
-              <h3 className="text-gray-800 font-semibold text-[17px]">Create a Coupon</h3>
-              <button onClick={closeAddCoupon} className="text-gray-500 hover:text-gray-700"><X size={20} /></button>
-            </div>
-            <div className="grid grid-cols-2 gap-5 text-sm text-gray-700">
-              <div>
-                <label className="block mb-1 font-medium">Coupon Code <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <input type="text" value={formCode} onChange={(e) => setFormCode(e.target.value.toUpperCase())} placeholder="-- " className="w-full border rounded-lg p-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-green-500" />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-700">✨</span>
-                </div>
-              </div>
-              <div>
-                <label className="block mb-1 font-medium">Discount <span className="text-red-500">*</span></label>
-                <div className="flex gap-2">
-                  <input type="number" value={formDiscount as any} onChange={(e) => setFormDiscount(e.target.value === "" ? "" : Number(e.target.value))} placeholder="-- " className="w-full border rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-green-500" />
-                  <div className="relative">
-                    <select value={formDiscountType} onChange={(e) => setFormDiscountType(e.target.value as any)} className="border rounded-lg p-2.5 focus:outline-none appearance-none pr-6 bg-white">
-                      <option value="Percentage">%</option>
-                      <option value="Fixed">₹</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <label className="block mb-1 font-medium">Minimum Order</label>
-                <input type="number" value={formMinOrder as any} onChange={(e) => setFormMinOrder(e.target.value === "" ? "" : Number(e.target.value))} placeholder="-- " className="w-full border rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-green-500" />
-              </div>
-              <div>
-                <label className="block mb-1 font-medium">Usage Limit / per person</label>
-                <input type="number" value={formUsageLimit as any} onChange={(e) => setFormUsageLimit(e.target.value === "" ? "" : Number(e.target.value))} placeholder="-- " className="w-full border rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-green-500" />
-              </div>
-              <div>
-                <label className="block mb-1 font-medium">Start Date <span className="text-red-500">*</span></label>
-                <input type="date" value={formStartDate} onChange={(e) => setFormStartDate(e.target.value)} className="w-full border rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-green-500" />
-              </div>
-              <div>
-                <label className="block mb-1 font-medium">Expiry Date <span className="text-red-500">*</span></label>
-                <input type="date" value={formExpiryDate} onChange={(e) => setFormExpiryDate(e.target.value)} className="w-full border rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-green-500" />
-              </div>
-              <div>
-                <label className="block mb-1 font-medium">Applicable on <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <select value={formAppliesTo} onChange={(e) => setFormAppliesTo(e.target.value)} className="w-full border rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none bg-white">
-                    <option value="All Products">--</option>
-                    {categories.map((cat) => (
-                      <option key={cat._id ?? cat.name} value={cat.name}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-center mt-6">
-              <button onClick={handleCreateCoupon} disabled={creatingCoupon} className="bg-green-600 text-white px-12 py-3 rounded-xl hover:bg-green-700 text-[15px] font-medium transition disabled:bg-green-300 w-full max-w-sm">
-                {creatingCoupon ? "Saving..." : "Save"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Save button */}
+      <div className="flex justify-center mt-4">
+        <button
+          type="button"
+          onClick={handleSaveVariety}
+          disabled={varLoading}
+          className="
+            bg-green-600 
+            text-white 
+            px-12 
+            py-3 
+            rounded-xl 
+            hover:bg-green-700 
+            text-sm 
+            font-medium
+          "
+        >
+          {varLoading ? "Saving..." : "Save"}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* DELETE COUPON MODAL */}
       {openDeleteId && (
