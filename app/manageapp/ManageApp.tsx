@@ -176,7 +176,7 @@ export default function ManageApp() {
   const [formStartDate, setFormStartDate] = useState("");
   const [formExpiryDate, setFormExpiryDate] = useState("");
   // <-- CHANGED: multiple categories selection. default to ["All Products"]
-  const [formAppliesTo, setFormAppliesTo] = useState<string[]>(["All Products"]);
+const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
   const [creatingCoupon, setCreatingCoupon] = useState(false);
   const [formTotalUsage, setFormTotalUsage] = useState("");
 
@@ -931,7 +931,7 @@ export default function ManageApp() {
     setFormStartDate("");
     setFormExpiryDate("");
     // default to All Products
-    setFormAppliesTo(["All Products"]);
+setFormAppliesTo("All Products");
   };
   const closeAddCoupon = () => setShowAddCoupon(false);
   const handleCreateCoupon = async () => {
@@ -1847,6 +1847,72 @@ export default function ManageApp() {
     </div>
   </div>
 )}
+      {/* ADD COUPON MODAL */}
+      {showAddCoupon && (
+        <div className="fixed inset-0 bg-black/40 flex justify-center items-start pt-20 z-50">
+          <div className="bg-white rounded-2xl shadow-lg w-[780px] p-7 relative">
+            <div className="flex justify-between items-center border-b pb-3 mb-5">
+              <h3 className="text-gray-800 font-semibold text-[17px]">Create a Coupon</h3>
+              <button onClick={closeAddCoupon} className="text-gray-500 hover:text-gray-700"><X size={20} /></button>
+            </div>
+            <div className="grid grid-cols-2 gap-5 text-sm text-gray-700">
+              <div>
+                <label className="block mb-1 font-medium">Coupon Code <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <input type="text" value={formCode} onChange={(e) => setFormCode(e.target.value.toUpperCase())} placeholder="-- " className="w-full border rounded-lg p-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-700">✨</span>
+                </div>
+              </div>
+              <div>
+                <label className="block mb-1 font-medium">Discount <span className="text-red-500">*</span></label>
+                <div className="flex gap-2">
+                  <input type="number" value={formDiscount as any} onChange={(e) => setFormDiscount(e.target.value === "" ? "" : Number(e.target.value))} placeholder="-- " className="w-full border rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                  <div className="relative">
+                    <select value={formDiscountType} onChange={(e) => setFormDiscountType(e.target.value as any)} className="border rounded-lg p-2.5 focus:outline-none appearance-none pr-6 bg-white">
+                      <option value="Percentage">%</option>
+                      <option value="Fixed">₹</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block mb-1 font-medium">Minimum Order</label>
+                <input type="number" value={formMinOrder as any} onChange={(e) => setFormMinOrder(e.target.value === "" ? "" : Number(e.target.value))} placeholder="-- " className="w-full border rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block mb-1 font-medium">Usage Limit / per person</label>
+                <input type="number" value={formUsageLimit as any} onChange={(e) => setFormUsageLimit(e.target.value === "" ? "" : Number(e.target.value))} placeholder="-- " className="w-full border rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block mb-1 font-medium">Start Date <span className="text-red-500">*</span></label>
+                <input type="date" value={formStartDate} onChange={(e) => setFormStartDate(e.target.value)} className="w-full border rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block mb-1 font-medium">Expiry Date <span className="text-red-500">*</span></label>
+                <input type="date" value={formExpiryDate} onChange={(e) => setFormExpiryDate(e.target.value)} className="w-full border rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block mb-1 font-medium">Applicable on <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <select value={formAppliesTo} onChange={(e) => setFormAppliesTo(e.target.value)} className="w-full border rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none bg-white">
+                    <option value="All Products">--</option>
+                    {categories.map((cat) => (
+                      <option key={cat._id ?? cat.name} value={cat.name}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-center mt-6">
+              <button onClick={handleCreateCoupon} disabled={creatingCoupon} className="bg-green-600 text-white px-12 py-3 rounded-xl hover:bg-green-700 text-[15px] font-medium transition disabled:bg-green-300 w-full max-w-sm">
+                {creatingCoupon ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
 
       {/* DELETE COUPON MODAL */}
