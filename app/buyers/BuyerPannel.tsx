@@ -395,7 +395,7 @@ export default function BuyersPanel() {
 
                 <p className="text-[15px] text-gray-700 mb-1">
                   <span className="font-medium text-gray-800">Location</span> –{" "}
-                  {Object.values(buyerDetail.buyer.location).join(", ") || "—"}
+{Object.values(buyerDetail.buyer.location || {}).join(", ") || "—"}
                 </p>
 
                 <p className="text-[15px] text-gray-700 mb-1">
